@@ -6,6 +6,18 @@ const cssbeautify = require('cssbeautify');
 const csstree = require('css-tree');
 const cheerio = require('cheerio');
 
+function write(content, filename) {
+    const _filename = filename || new Date().getTime() + '.txt';
+    const _path = path.join(__dirname, `日志_${_filename}`);
+    fs.writeFile(_path, content,(err, doc) => {
+        if(err != null){
+            console.error(err);
+            return false;
+        }
+        // console.log('文件成功写入了！');
+    })
+}
+
 function doWxss(dir, cb, mainDir, nowDir) {
     let saveDir = dir;
     let isSubPkg = mainDir && mainDir.length > 0;
@@ -222,6 +234,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
         wu.get(frameFile, code => {
             code = code.replace(/display:-webkit-box;display:-webkit-flex;/gm, '');
             let scriptCode = code;
+
+            write(scriptCode, 'scriptCode.js');
             //extract script content from html
             if (frameFile.endsWith(".html")) {
                 try {
@@ -229,6 +243,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
                     scriptCode = [].join.apply($('html').find('script').map(function (item) {
                         return $(this).html();
                     }, "\n"));
+                    write(scriptCode, 'scriptCode2.js');
                 } catch (e) {
                     //ignore
                 }
@@ -247,7 +262,23 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 userAgent: "iPhone"
             };
 
-            scriptCode = scriptCode.slice(scriptCode.lastIndexOf('window.__wcc_version__'));
+            let index = scriptCode.lastIndexOf('window.__wcc_version__');
+            if(index === -1){
+                // scriptCode = scriptCode.slice(scriptCode.lastIndexOf('__globalThis.__wcc_version__'));
+                // scriptCode = scriptCode.slice(scriptCode.lastIndexOf('var __globalThis='));
+                index = scriptCode.lastIndexOf('var __globalThis=');
+                scriptCode = scriptCode.slice(index);
+
+                const [ g_start, g_end ] = ['if(this&&this.__g===undefined)', 'Object.freeze(__g);'];
+                const g = code.slice(code.indexOf(g_start), code.indexOf(g_end) + g_end.length);
+
+                write(g, 'g.js');
+                scriptCode = g + scriptCode;
+            } else {
+                scriptCode = scriptCode.slice(index);
+            }
+
+            write(scriptCode, 'scriptCode3.js');
             let mainCode = 'window= ' + JSON.stringify(window) +
                 ';\nnavigator=' + JSON.stringify(navigator) +
                 ';\nvar __mainPageFrameReady__ = window.__mainPageFrameReady__ || function(){};var __WXML_GLOBAL__={entrys:{},defines:{},modules:{},ops:[],wxs_nf_init:undefined,total_ops:0};var __vd_version_info__=__vd_version_info__||{}' +
@@ -282,9 +313,15 @@ function doWxss(dir, cb, mainDir, nowDir) {
             code = code.slice(0, code.indexOf('\n'));
             let vm = new VM({sandbox: {}});
             pureData = vm.run(code + "\n_C");
+            write(JSON.stringify(pureData), 'pureData.txt');
 
 			console.log("Guess wxss(first turn)...");
             preRun(dir, frameFile, mainCode, files, () => {
+                console.info("dir, frameFile, mainCode, files")
+                write(mainCode, "mainCode.js")
+                write(frameFile, "frameFile.txt")
+                console.info(dir)
+                console.info(files)
                 frameName = frameFile;
                 onlyTest = true;
 				runOnce();

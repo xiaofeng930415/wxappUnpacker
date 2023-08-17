@@ -167,8 +167,15 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                         name = v;
                                     } else {
                                         if (base + v < 0) mv[name] = null; else {
+                                            // console.info('=========================')
+                                            // console.info('zMulName:', zMulName)
+                                            // console.info('base:', base)
+                                            // console.info('v:', v)
+                                            // console.info('name:', name)
+                                            // console.info('z.mul[zMulName]:', z.mul[zMulName])
                                             mv[name] = z.mul[zMulName][base + v];
                                             if (base == 0) base = v;
+                                            // console.info('=========================')
                                         }
                                         name = null;
                                     }
@@ -202,8 +209,9 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             default: {
                                 let funName = dec.init.callee.name;
-                                if (funName.startsWith("gz$gwx")) {
-                                    zMulName = funName.slice(6);
+                                if (funName.startsWith("gz$gwx_XC")) {
+                                    zMulName = funName.slice(10);
+                                    console.log('funName:', funName, ' zMulName', zMulName)
                                 } else throw Error("Unknown init callee " + funName);
                             }
                         }
@@ -329,10 +337,20 @@ function elemToString(elem, dep, moreInfo = false) {
 function doWxml(state, dir, name, code, z, xPool, rDs, wxsList, moreInfo) {
     let rname = code.slice(code.lastIndexOf("return") + 6).replace(/[\;\}]/g, "").trim();
     code = code.slice(code.indexOf("\n"), code.lastIndexOf("return")).trim();
+    //// console.log('============================');
+    // //// console.log("code: ", code)
     let r = {son: []};
+    //// console.log('============================');
+    // //// console.log("z: ", z)
     analyze(esprima.parseScript(code).body, z, {[rname]: r}, xPool, {[rname]: r});
+    //// console.log('============================');
+    // //// console.log("z: after", z)
     let ans = [];
     for (let elem of r.son) ans.push(elemToString(elem, 0, moreInfo));
+    //// console.log('============================');
+    //// console.log("r.son", r.son);
+    //// console.log('============================');
+    // //// console.log("ans", ans.join(""));
     let result = [ans.join("")];
     for (let v in rDs) {
         state[0] = v;
@@ -345,13 +363,19 @@ function doWxml(state, dir, name, code, z, xPool, rDs, wxsList, moreInfo) {
             let attach = oriCode.slice(zPtr);
             attach = attach.slice(0, attach.indexOf("()")) + "()\n";
             code = attach + code;
+            //// console.log("attach: ", attach)
         }
+        // //// console.log("code: ", code)
         let r = {tag: "template", v: {name: v}, son: []};
         analyze(esprima.parseScript(code).body, z, {[rname]: r}, xPool, {[rname]: r});
         result.unshift(elemToString(r, 0, moreInfo));
     }
+    // console.log('state[0]', state[0], ' rDs', rDs)
     name = path.resolve(dir, name);
     if (wxsList[name]) result.push(wxsList[name]);
+    //// console.log('============================');
+    // //// console.log('result.join(""): ', result.join(""));
+    //// console.log('============================');
     wu.save(name, result.join(""));
 }
 
@@ -362,7 +386,8 @@ function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
         doWxml(state, dir, name, code, z, xPool, rDs, ...args);
         console.log("Decompile success!");
     } catch (e) {
-        console.log("error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
+        console.error("dir:", dir, " error: ", e);
+        // console.error("error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
         if (state[0] === null) wu.save(path.resolve(dir, name + ".ori.js"), code);
         else wu.save(path.resolve(dir, name + ".tem-" + state[0] + ".ori.js"), rDs[state[0]].toString());
     }
@@ -375,17 +400,104 @@ function doWxs(code, name) {
     return wxsBeautify(code.slice(code.indexOf(before) + before.length, code.lastIndexOf('return nv_module.nv_exports;}')).replace(eval('/' + ('p_' + name).replace(/\//g, '\\/') + '/g'), '').replace(/nv\_/g, '').replace(/(require\(.*?\))\(\)/g,'$1'));
 }
 
+// 写一个
+function transformCode({str, prefix = 'if(path&&e_[path]){', start = '{', end = '}'}) {
+    if(!str.includes(prefix)){
+        return str;
+    }
+    const str_list = str.split(prefix);
+  
+    function findTheEndCore(str, start, end) {
+        let [startNum, endNum] = [1, 0];
+        let _str = str;
+        for(let i = 0; i < str.length; i++){
+            let temp = str[i];
+            if(temp === start){
+                startNum += 1;
+            } else if(temp === end){
+                endNum += 1;
+            }
+            if(startNum === endNum){
+                _str = str.slice(i+1);
+                break;
+            }
+        }
+        return _str;
+    }
+    // const [str_list_0, ...str_list_rest] = str_list;
+    // const _str_list = [str_list_0, ...str_list_rest.map(item => {
+    //     return findTheEndCore(item, start, end)
+    // })];
+    const [var_start, var_end] = ["var x=[", "];"];
+
+    const _str_list = str_list.map((item, index) => {
+        if(item.includes('var x=[];')){
+            return item;
+        }
+        // 1只去掉了条件判断语句
+        let _item = findTheEndCore(item, start, end); 
+        // 2去掉var x=[字段前的所有字段
+        _item = _item.slice(_item.indexOf(var_start));
+        // 3 批量替换x[0]
+        _item = _item.replace(/x\[0\]/g, `x[${index}]`);
+        // 4 转换第一条语句
+        const value = _item.slice(_item.indexOf(var_start) + var_start.length, _item.indexOf(var_end));
+        _item = _item.slice(_item.indexOf(var_end) + var_end.length);
+        _item = `x[${index}]=${value};${_item}`;
+
+        // 3 批量替换m0
+        _item = _item.replace(/m0/g, `m${index}`);
+        console.log(`str_list[${index}]: `, value);
+        console.log(`str_list[${index}]: `, _item);
+        console.log('========================');
+        return _item;
+    });
+    if(_str_list)
+    return _str_list.join('');
+  }
+
 function doFrame(name, cb, order, mainDir) {
     let moreInfo = order.includes("m");
     wxsList = {};
     wu.get(name, code => {
         getZ(code, z => {
+            //// console.log('==============================');
+            // console.info('name', name, '\nz', z);
+            //// console.log('==============================');
+            // console.info('code', code.slice(0,2000));
+            //// console.log('==============================');
             const before = "\nvar nv_require=function(){var nnm=";
             code = code.slice(code.lastIndexOf(before) + before.length, code.lastIndexOf("if(path&&e_[path]){"));
             json = code.slice(0, code.indexOf("};") + 1);
-            let endOfRequire = code.indexOf("()\r\n") + 4;
-            if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
-            code = code.slice(endOfRequire);
+            
+            try{
+                JSON.parse(json);
+                let endOfRequire = code.indexOf("()\r\n") + 4;
+                if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
+                code = code.slice(endOfRequire);
+            }catch(e){
+                // 如果格式化失败，则说明json不对
+                let endOfRequire = code.indexOf("var x=[];");
+                code = code.slice(endOfRequire);
+                //// console.log('endOfRequireendOfRequireendOfRequireendOfRequireendOfRequire', endOfRequire);
+                //// console.log('CCCCCode:', code.slice(0, 100));
+                code = transformCode({ str: code });
+
+                // //// console.log('JJJJJJJJJJJson:', json);
+                //TODO handle the exception
+                // 需要拿掉json的那一段
+                //// console.log('CCCCCode:', code.slice(0, 100));
+                //// console.log('==============================');
+                // code = code.replace(json, '{}');
+                json = "{}";
+                // //// console.log('code:', code.slice(0, 50));
+            }
+            
+
+
+            // let endOfRequire = code.indexOf("()\r\n") + 4;
+            // if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
+            // code = code.slice(endOfRequire);
             let rD = {}, rE = {}, rF = {}, requireInfo = {}, x, vm = new VM({
                 sandbox: {
                     d_: rD, e_: rE, f_: rF, _vmRev_(data) {
@@ -396,7 +508,19 @@ function doFrame(name, cb, order, mainDir) {
                 }
             });
             let vmCode = code + "\n_vmRev_([x," + json + "])";
+            // //// console.log('vmCode\n', vmCode);
             vm.run(vmCode);
+            //// console.log('==============================');
+            console.log("rE:\n", rE);
+            console.log('==============================');
+            //// console.log("rD:\n", rD);
+            console.log('==============================');
+            console.log("rF:\n", rF);
+            //// console.log('==============================');
+            //// console.log("x:\n", x);
+            //// console.log('==============================');
+            //// console.log("requireInfo:\n", requireInfo);
+            //// console.log('==============================');
             let dir = mainDir || path.dirname(name), pF = [];
             for (let info in rF) if (typeof rF[info] == "function") {
                 let name = path.resolve(dir, (info[0] == '/' ? '.' : '') + info), ref = rF[info]();

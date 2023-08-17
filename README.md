@@ -60,3 +60,8 @@ TIP
 │   └── master-xxx             # ../master-xxx 就是这个目录
 │       ├── app.json
 ```
+
+循环嵌套 非也
+
+需要写个循环 去除if(path&&e_[path]){ 里的代码 }
+

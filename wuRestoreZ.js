@@ -16,8 +16,48 @@ function catchZGroup(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
+function catchZGroupNew(code, groupPreStr, cb) {
+	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
+	let zArr = {};
+	for (let preStr of groupPreStr) {
+		let content = code.slice(code.indexOf(preStr)), z = [];
+		content = content.slice(content.indexOf("(function(z){var a=11;"));
+		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
+		let vm = new VM({sandbox: {z: z, debugInfo: []}});
+		// console.log('======================');
+		// console.log('preStr:' + preStr);
+		// console.log('\ncontent:' + content);
+		vm.run(content);
+		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
+		zArr[preStr.match(/function gz\$gwx\_XC\_(\d*\_\d+)/)[1]] = z;
+	}
+	console.log('======================');
+	cb({"mul": zArr});
+}
+
 function catchZ(code, cb) {
 	let groupTest = code.match(/function gz\$gwx(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*\_\d+\)/g);
+	if (groupTest !== null) return catchZGroup(code, groupTest, cb);
+	
+	// 走新
+	groupTest = code.match(/function gz\$gwx\_XC\_(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\_XC\_\d*\_\d+\)/g);
+	if (groupTest !== null) return catchZGroupNew(code, groupTest, cb);
+	console.log("groupTest:", groupTest);
+	// groupTest: [
+	// 	'function gz$gwx_1(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_1)',
+	// 	'function gz$gwx_2(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_2)',
+	// 	'function gz$gwx_3(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_3)',
+	// 	'function gz$gwx_4(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_4)',
+	// 	'function gz$gwx_5(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_5)',
+	// 	'function gz$gwx_6(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_6)',
+	// 	'function gz$gwx_7(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_7)',
+	// 	'function gz$gwx_8(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_8)',
+	// 	'function gz$gwx_9(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_9)',
+	// 	'function gz$gwx_10(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_10)',
+	// 	'function gz$gwx_11(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_11)',
+	// 	'function gz$gwx_12(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_12)',
+	// 	'function gz$gwx_13(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_13)'
+	// ]
 	if (groupTest !== null) return catchZGroup(code, groupTest, cb);
 	let z = [], vm = new VM({
 		sandbox: {
@@ -29,6 +69,7 @@ function catchZ(code, cb) {
 	if (lastPtr == -1) lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx");
 	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), lastPtr + 4);
 	vm.run(code);
+	console.log('code:', code);
 	cb(z);
 }
 
