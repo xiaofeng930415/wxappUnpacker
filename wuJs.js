@@ -35,6 +35,11 @@ function splitJs(name, cb, mainDir) {
                     needDelList[path.resolve(dir, name)] = -8;
                     wu.save(path.resolve(dir, name), jsBeautify(res));
                 },
+                // 补充
+                __g() {},
+                __vd_version_info__: {},
+                __wxAppCode__: {},
+                // 补充
                 definePlugin() {
                 },
                 requirePlugin() {

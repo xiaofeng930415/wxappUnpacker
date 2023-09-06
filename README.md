@@ -46,7 +46,9 @@ node wuWxapkg.js  .wxapkg
 3. 解包子包  
     - windows系统使用: `./bingo.bat testpkg/sub-1-xxx.wxapkg -s=../master-xxx`
     - Linux系统使用:  `./bingo.sh testpkg/sub-1-xxx.wxapkg -s=../master-xxx`
-
+4.备注
+    - 解析子包只能是: `node wuWxapkg.js -s=../master-xxx testpkg/sub-1-xxx.wxapkg`
+    - 目前支持 `./bingo.bat testpkg/sub-1-xxx.wxapkg -s ../master-xxx`
 
 TIP
 > -s 参数可为相对路径或绝对路径, 推荐使用绝对路径, 因为相对路径的起点不是当前目录 而是子包解包后的目录
@@ -65,3 +67,24 @@ TIP
 
 需要写个循环 去除if(path&&e_[path]){ 里的代码 }
 
+现存问题：
+
+dir: C:\Users\xiaogf007\Documents\leidian9\Pictures\ciniao\_1637444913_17  error:  Error: Unknown init callee 
+gz$gwx0_XC_1_1
+    at analyze (D:\GitStore\wxappUnpacker\wuWxml.js:216:46)
+    at doWxml (D:\GitStore\wxappUnpacker\wuWxml.js:346:5)
+    at tryWxml (D:\GitStore\wxappUnpacker\wuWxml.js:387:9)
+    at D:\GitStore\wxappUnpacker\wuWxml.js:574:34
+    at D:\GitStore\wxappUnpacker\wuRestoreZ.js:321:21
+    at catchZ (D:\GitStore\wxappUnpacker\wuRestoreZ.js:73:2)
+    at getZ (D:\GitStore\wxappUnpacker\wuRestoreZ.js:321:3)
+    at D:\GitStore\wxappUnpacker\wuWxml.js:464:9
+    at D:\GitStore\wxappUnpacker\wuLib.js:103:14
+    at agent (D:\GitStore\wxappUnpacker\wuLib.js:66:23)
+Decompile ./sub_pages/tools/coverCrop.wxml...
+dir: C:\Users\xiaogf007\Documents\leidian9\Pictures\ciniao\_1637444913_17  error:  Error: Unknown init callee 
+
+已经修复
+
+可以参考
+_-1431017214_12

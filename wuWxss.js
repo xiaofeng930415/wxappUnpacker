@@ -128,12 +128,17 @@ function doWxss(dir, cb, mainDir, nowDir) {
         });
 
         // console.log('do css runVm: ' + name);
-		vm.run(code);
-        for (let name in wxAppCode) {
-            handle.cssFile = path.resolve(saveDir, name);
-            if (name.endsWith(".wxss")) {
-                wxAppCode[name]();
+        try {
+            vm.run(code);
+            for (let name in wxAppCode) {
+                handle.cssFile = path.resolve(saveDir, name);
+                if (name.endsWith(".wxss")) {
+                    wxAppCode[name]();
+                }
             }
+        } catch (error) {
+            // 转化失败
+            console.log('【error】', error);
         }
     }
 
@@ -230,6 +235,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
             frameFile = path.resolve(dir, "app-wxss.js");
         else if (fs.existsSync(path.resolve(dir, "page-frame.js")))
             frameFile = path.resolve(dir, "page-frame.js");
+        else if (fs.existsSync(path.resolve(dir, "pageframe.js")))
+            frameFile = path.resolve(dir, "pageframe.js");
 		else throw Error("page-frame-like file is not found in the package by auto.");
         wu.get(frameFile, code => {
             code = code.replace(/display:-webkit-box;display:-webkit-flex;/gm, '');

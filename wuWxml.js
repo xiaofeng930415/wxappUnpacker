@@ -6,6 +6,7 @@ const path = require("path");
 const esprima = require('esprima');
 const {VM} = require('vm2');
 const escodegen = require('escodegen');
+const { write } = require('./utils.js');
 
 function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
     function anaRecursion(core, fakePool = {}) {
@@ -209,8 +210,12 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             default: {
                                 let funName = dec.init.callee.name;
-                                if (funName.startsWith("gz$gwx_XC")) {
-                                    zMulName = funName.slice(10);
+                                let prefixList = ["gz$gwx_XC", "gz$gwx"];
+                                if (funName.startsWith(prefixList[0])) {
+                                    zMulName = funName.slice(prefixList[0].length + 1);
+                                    console.log('funName:', funName, ' zMulName', zMulName)
+                                } else if (funName.startsWith(prefixList[1])) {
+                                    zMulName = funName.slice(prefixList[1].length);
                                     console.log('funName:', funName, ' zMulName', zMulName)
                                 } else throw Error("Unknown init callee " + funName);
                             }
@@ -232,7 +237,16 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                 if (e.test.callee.name.startsWith("_o")) {
                     function parse_OFun(e) {
                         if (e.test.callee.name == "_o") return z[e.test.arguments[0].value];
-                        else if (e.test.callee.name == "_oz") return z.mul[zMulName][e.test.arguments[1].value];
+                        else if (e.test.callee.name == "_oz") {
+                            let temp;
+                            try{
+                                temp = z.mul[zMulName][e.test.arguments[1].value];
+                            }catch(e){
+                                //TODO handle the exception
+                                throw new Error(e);
+                            }
+                            return
+                        }
                         else throw Error("Unknown if statement test callee name:" + e.test.callee.name);
                     }
 
@@ -473,11 +487,28 @@ function doFrame(name, cb, order, mainDir) {
             try{
                 JSON.parse(json);
                 let endOfRequire = code.indexOf("()\r\n") + 4;
+                
                 if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
                 code = code.slice(endOfRequire);
             }catch(e){
+                const _json = '{}';
                 // 如果格式化失败，则说明json不对
+                // code = code.replace(json, _json) // 可以不拿掉
+                json = _json;
                 let endOfRequire = code.indexOf("var x=[];");
+                if(endOfRequire === -1){
+                    let patt = /var x=\[.*?\];/
+                    let var_X = code.match(patt)?.[0];
+                    if(!var_X){
+                        throw new Error('找不到 var x=\[.*?\];');
+                    }
+                    endOfRequire = code.indexOf(var_X);
+                }
+                
+                // 不兼容以下这种
+                // var x=['./components/courseRecord.wxml',...];
+                
+                
                 code = code.slice(endOfRequire);
                 //// console.log('endOfRequireendOfRequireendOfRequireendOfRequireendOfRequire', endOfRequire);
                 //// console.log('CCCCCode:', code.slice(0, 100));
@@ -489,7 +520,6 @@ function doFrame(name, cb, order, mainDir) {
                 //// console.log('CCCCCode:', code.slice(0, 100));
                 //// console.log('==============================');
                 // code = code.replace(json, '{}');
-                json = "{}";
                 // //// console.log('code:', code.slice(0, 50));
             }
             
@@ -507,9 +537,39 @@ function doFrame(name, cb, order, mainDir) {
                     }
                 }
             });
+
             let vmCode = code + "\n_vmRev_([x," + json + "])";
+
             // //// console.log('vmCode\n', vmCode);
-            vm.run(vmCode);
+            try{
+                vm.run(vmCode);
+            }catch(e){
+                // 运行失败,尝试转化一下代码
+                let endOfRequire = code.indexOf("var x=[];");
+                if(endOfRequire === -1){
+                    let patt = /var x=\[.*?\];/
+                    let var_X = code.match(patt)?.[0];
+                    if(!var_X){
+                        throw new Error('找不到 var x=\[.*?\];');
+                    }
+                    endOfRequire = code.indexOf(var_X);
+                }
+                code = code.slice(endOfRequire);
+                write(code, path.join(__dirname, '_code_before.js'));
+                code = transformCode({ str: code });
+                write(code, path.join(__dirname, '_code_after.js'));
+                let vmCode = code + "\n_vmRev_([x," + json + "])";
+                try{
+                    vm.run(vmCode);
+                }catch(e){
+                    //TODO handle the exception
+                    // 还出错就没办法了
+                    console.error(e);
+                }
+                
+                // write(vmCode, path.join(__dirname, '____vmCode.js'));
+                //TODO handle the exception
+            }
             //// console.log('==============================');
             console.log("rE:\n", rE);
             console.log('==============================');

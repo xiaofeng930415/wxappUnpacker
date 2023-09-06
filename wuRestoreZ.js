@@ -38,7 +38,6 @@ function catchZGroupNew(code, groupPreStr, cb) {
 function catchZ(code, cb) {
 	let groupTest = code.match(/function gz\$gwx(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*\_\d+\)/g);
 	if (groupTest !== null) return catchZGroup(code, groupTest, cb);
-	
 	// 走新
 	groupTest = code.match(/function gz\$gwx\_XC\_(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\_XC\_\d*\_\d+\)/g);
 	if (groupTest !== null) return catchZGroupNew(code, groupTest, cb);
@@ -58,7 +57,7 @@ function catchZ(code, cb) {
 	// 	'function gz$gwx_12(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_12)',
 	// 	'function gz$gwx_13(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_13)'
 	// ]
-	if (groupTest !== null) return catchZGroup(code, groupTest, cb);
+	// if (groupTest !== null) return catchZGroup(code, groupTest, cb);
 	let z = [], vm = new VM({
 		sandbox: {
 			z: z,

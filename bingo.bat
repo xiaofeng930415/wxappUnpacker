@@ -1,18 +1,28 @@
-﻿# WXAPPUNPACKER_PATH 项目路径
+﻿#  项目路径
 set WXAPPUNPACKER_PATH=%~dp0
 
 set FILE_FORMAT=wxapkg
 
 :wxappUnpacker_pkg 
 
-echo "node %WXAPPUNPACKER_PATH%/wuWxapkg.js %fname%"
+echo "wxappUnpacker_pkg"
 
-node %WXAPPUNPACKER_PATH%/wuWxapkg.js %2 %1
+if "%2" == "" (
+  echo "node %WXAPPUNPACKER_PATH%/wuWxapkg.js %1"
+  node %WXAPPUNPACKER_PATH%/wuWxapkg.js %1
+) else if "%3" == "" (
+  echo "node %WXAPPUNPACKER_PATH%/wuWxapkg.js %2 %1"
+  node %WXAPPUNPACKER_PATH%/wuWxapkg.js %2 %1
+) else (
+  echo "node %WXAPPUNPACKER_PATH%/wuWxapkg.js %2^=%3 %1"
+  node %WXAPPUNPACKER_PATH%/wuWxapkg.js %2^=%3 %1
+)
 
 goto:eof
 
 :wxappUnpacker 
 
+echo "wxappUnpacker"
 set de_dir=%1
 
   if "%de_dir%" == ""
@@ -33,13 +43,11 @@ goto:eof
 
 :de_pkg
 
-  if "-d" == "%1"
-
-    (call :wxappUnpacker %1 %2)
-
-  else
-
-    (call :wxappUnpacker_pkg %1 %2)
+  if "-d" == "%1"(
+    call :wxappUnpacker %1 %2
+  ) else (
+    call :wxappUnpacker_pkg %1 %2 %3
+  )
 
 goto:eof
 

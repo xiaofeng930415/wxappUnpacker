@@ -153,7 +153,14 @@ function packDone(dir, cb, order) {
                 let findDir = function (dir, oldDir) {
                     let files = fs.readdirSync(dir);
                     for (const file of files) {
-                        let workDir = path.join(dir, file);
+                        // 这里有两种情况，有可能是文件夹sub_pages，也有可能直接是文件,要区分
+                        let tempPath = path.join(dir, file);
+                        const stats = fs.statSync(tempPath);
+                        let workDir = dir;
+                        if(!stats.isFile()){
+                            workDir = tempPath;
+                        }
+                        // if (fs.existsSync(path.resolve(workDir, "appservice.js"))) {
                         if (fs.existsSync(path.resolve(workDir, "app-service.js"))) {
                             console.log("sub package word dir: " + workDir);
                             mainDir = path.resolve(oldDir, mainDir);
@@ -162,13 +169,15 @@ function packDone(dir, cb, order) {
                             doSubPkg = true;
                             return true;
                         } else {
-                            findDir(workDir, oldDir);
+                            if(workDir !== dir){ // 防止嵌套循环
+                                findDir(workDir, oldDir);
+                            }
                         }
                     }
 
                 };
 
-                findDir(dir, dir);
+                findDir(dir, mainDir);
 
             }
         }
@@ -179,7 +188,12 @@ function packDone(dir, cb, order) {
 }
 
 function doFile(name, cb, order) {
-    for (let ord of order) if (ord.startsWith("s=")) global.subPack = ord.slice(3);
+    // for (let ord of order) if (ord.startsWith("s=")) global.subPack = ord.slice(3);
+    for (let ord of order) {
+        if (ord.startsWith("s=")) {
+            global.subPack = ord.slice(3);
+        }
+    }
     console.log("Unpack file " + name + "...");
     let dir = path.resolve(name, "..", path.basename(name, ".wxapkg"));
     wu.get(name, buf => {
