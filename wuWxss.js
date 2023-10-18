@@ -138,13 +138,19 @@ function doWxss(dir, cb, mainDir, nowDir) {
             }
         } catch (error) {
             // 转化失败
-            console.log('【error】', error);
+            console.error('报错【name】', name);
+            // console.log('【code】', code);
+            console.log('==================================================');
+            console.log('报错【error】', error);
+            console.log('==================================================');
         }
     }
 
     function preRun(dir, frameFile, mainCode, files, cb) {
 		wu.addIO(cb);
+
         runList[path.resolve(dir, "./app.wxss")] = mainCode;
+        debugger;
 
         for (let name of files) {
             if (name != frameFile) {
@@ -158,10 +164,12 @@ function doWxss(dir, cb, mainDir, nowDir) {
                             lastName = path.resolve(saveDir, dirSplit[1]);
                         }
                         runList[lastName] = code.slice(code.indexOf("setCssToHead("));
+                        debugger;
                     }
                 });
             }
         }
+        debugger;
     }
 
     function runOnce() {
@@ -238,10 +246,12 @@ function doWxss(dir, cb, mainDir, nowDir) {
         else if (fs.existsSync(path.resolve(dir, "pageframe.js")))
             frameFile = path.resolve(dir, "pageframe.js");
 		else throw Error("page-frame-like file is not found in the package by auto.");
+
+        debugger;
         wu.get(frameFile, code => {
             code = code.replace(/display:-webkit-box;display:-webkit-flex;/gm, '');
             let scriptCode = code;
-
+            debugger;
             write(scriptCode, 'scriptCode.js');
             //extract script content from html
             if (frameFile.endsWith(".html")) {
@@ -282,8 +292,11 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 write(g, 'g.js');
                 scriptCode = g + scriptCode;
             } else {
+                debugger
                 scriptCode = scriptCode.slice(index);
+                debugger
             }
+            debugger;
 
             write(scriptCode, 'scriptCode3.js');
             let mainCode = 'window= ' + JSON.stringify(window) +
@@ -358,7 +371,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 let delFiles = {};
                 for (let name of files) delFiles[name] = 8;
                 delFiles[frameFile] = 4;
-				cb(delFiles);
+				// cb(delFiles);
+                cb({})
 			});
 		});
 	});
