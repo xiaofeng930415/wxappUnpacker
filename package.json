@@ -5,12 +5,12 @@
   "main": "wuWxapkg.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qwerty472123/wxappUnpacker.git"
+    "url": "git+https://github.com/xiaofeng930415/wxappUnpacker.git"
   },
-  "author": "qwerty472123",
+  "author": "fidoxiao",
   "license": "GPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/qwerty472123/wxappUnpacker/issues"
+    "url": "https://github.com/xiaofeng930415/wxappUnpacker/issues"
   },
   "scripts": {
     "pkg": "node wuWxapkg.js",
@@ -19,7 +19,7 @@
     "js": "node wuJs.js",
     "cfg": "node wuConfig.js"
   },
-  "homepage": "https://github.com/qwerty472123/wxappUnpacker#readme",
+  "homepage": "https://github.com/xiaofeng930415/wxappUnpacker#readme",
   "dependencies": {
     "cheerio": "^1.0.0-rc.3",
     "css-tree": "^1.0.0-alpha.28",
@@ -28,6 +28,7 @@
     "esprima": "^4.0.0",
     "js-beautify": "^1.7.5",
     "uglify-es": "^3.3.9",
-    "vm2": "^3.6.0"
+    "vm2": "^3.6.0",
+    "webpack-unpack": "^2.0.0"
   }
 }
