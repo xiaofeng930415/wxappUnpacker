@@ -238,14 +238,12 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                     function parse_OFun(e) {
                         if (e.test.callee.name == "_o") return z[e.test.arguments[0].value];
                         else if (e.test.callee.name == "_oz") {
-                            let temp;
                             try{
-                                temp = z.mul[zMulName][e.test.arguments[1].value];
+                                return z.mul[zMulName][e.test.arguments[1].value];
                             }catch(e){
                                 //TODO handle the exception
                                 throw new Error(e);
                             }
-                            return
                         }
                         else throw Error("Unknown if statement test callee name:" + e.test.callee.name);
                     }

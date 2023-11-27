@@ -1,4 +1,5 @@
 const wu = require("./wuLib.js");
+const { doAppWxss } = require("./wxss/index.js");
 const path = require("path");
 const fs = require("fs");
 const {VM} = require('vm2');
@@ -126,19 +127,40 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 }
             })
         });
+        if (name.includes("app")) {
+            write(code, "appWxss.js");
+        }
 
-        // console.log('do css runVm: ' + name);
+
+        console.log('do css runVm: ' + name);
+        let flag = false;
         try {
             vm.run(code);
+            flag = true;
+        } catch (error) {
+            console.log('【error】', error);
+            console.log('===========================');
+            console.log('转化失败,尝试用新方式进行转化');
+        }
+        if(!flag){
+            let _code = doAppWxss(code);
+            try {
+                vm.run(_code);
+                flag = true;
+            } catch (error) {
+                console.log('【error】', error);
+                console.log('===========================');
+                console.log('转化失败,尝试用新方式进行转化失败');
+            }
+        }
+
+        if(flag){
             for (let name in wxAppCode) {
                 handle.cssFile = path.resolve(saveDir, name);
                 if (name.endsWith(".wxss")) {
                     wxAppCode[name]();
                 }
             }
-        } catch (error) {
-            // 转化失败
-            console.log('【error】', error);
         }
     }
 
@@ -244,16 +266,25 @@ function doWxss(dir, cb, mainDir, nowDir) {
 
             write(scriptCode, 'scriptCode.js');
             //extract script content from html
+            let isMatch = true;
             if (frameFile.endsWith(".html")) {
-                try {
-                    const $ = cheerio.load(code);
-                    scriptCode = [].join.apply($('html').find('script').map(function (item) {
-                        return $(this).html();
-                    }, "\n"));
-                    write(scriptCode, 'scriptCode2.js');
-                } catch (e) {
-                    //ignore
-                }
+                // let reg = /var __pageFrameStartTime__=Date\.now\(\);(\n|\r|.)*var __pageFrameEndTime__=Date\.now\(\);/
+                // let list = scriptCode.match(reg)
+                // if(list?.[0]){
+                //     scriptCode = list[0];
+                //     isMatch =  true;
+                //     write(scriptCode, 'scriptCode2.js');
+                // }else {
+                    try {
+                        const $ = cheerio.load(code);
+                        scriptCode = [].join.apply($('html').find('script').map(function (item) {
+                            return $(this).html();
+                        }, "\n"));
+                        write(scriptCode, 'scriptCode2.js');
+                    } catch (e) {
+                        //ignore
+                    }
+                // }
             }
 
             let window = {
@@ -283,12 +314,19 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 scriptCode = g + scriptCode;
             } else {
                 scriptCode = scriptCode.slice(index);
+                if(isMatch){
+                    // scriptCode = "(function(){" + scriptCode; // .replace(" })(); ", '');
+                    scriptCode = scriptCode.replace("})();     var __pluginFrameEndTime_wx4d2deeab3aed6e5a__", 'var __pluginFrameEndTime_wx4d2deeab3aed6e5a__');
+                }
             }
 
             write(scriptCode, 'scriptCode3.js');
             let mainCode = 'window= ' + JSON.stringify(window) +
+            // let mainCode = 'Object.assign(window, ' + JSON.stringify(window) + ')' +
                 ';\nnavigator=' + JSON.stringify(navigator) +
                 ';\nvar __mainPageFrameReady__ = window.__mainPageFrameReady__ || function(){};var __WXML_GLOBAL__={entrys:{},defines:{},modules:{},ops:[],wxs_nf_init:undefined,total_ops:0};var __vd_version_info__=__vd_version_info__||{}' +
+                `;\nvar __globalThis = (typeof __vd_version_info__ !== 'undefined' && typeof __vd_version_info__.globalThis !== 'undefined') ? __vd_version_info__.globalThis : window;` +
+                `;\nvar __g = {}` +
                 ";\n" + scriptCode;
 
                 if (code.indexOf('__COMMON_STYLESHEETS__') != -1) {
@@ -323,6 +361,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
             write(JSON.stringify(pureData), 'pureData.txt');
 
 			console.log("Guess wxss(first turn)...");
+            // write(scriptCode, 'scriptCode4.js');
+            // debugger;
             preRun(dir, frameFile, mainCode, files, () => {
                 console.info("dir, frameFile, mainCode, files")
                 write(mainCode, "mainCode.js")

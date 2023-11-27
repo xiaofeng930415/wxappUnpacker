@@ -116,3 +116,9 @@ unp unpack -s <decrypt>.wxapkg
 
 # 解包 (指定输出目录)
 unp unpack -s <decrypt>.wxapkg -d <dist path>
+
+
+必须cd进入相应的路径   C:/Users/Administrator/Documents/"WeChat Files"/Applet
+才能执行   unp decrypt -s __APP__.wxapkg  -d APP.wxapkg
+
+
