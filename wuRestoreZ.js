@@ -1,4 +1,3 @@
-const wu = require("./wuLib.js");
 const {VM} = require('vm2');
 
 function catchZGroup(code, groupPreStr, cb) {
@@ -11,7 +10,8 @@ function catchZGroup(code, groupPreStr, cb) {
 		let vm = new VM({sandbox: {z: z, debugInfo: []}});
 		vm.run(content);
 		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx(\d*\_\d+)/)[1]] = z;
+		// zArr[preStr.match(/function gz\$gwx(\d*_\d+)/)[1]] = z; 获取 => _数字
+		zArr[preStr.match(/function gz\$gwx_(\d+)/)[1]] = z; // 获取 => 数字
 	}
 	cb({"mul": zArr});
 }
@@ -29,19 +29,29 @@ function catchZGroupNew(code, groupPreStr, cb) {
 		// console.log('\ncontent:' + content);
 		vm.run(content);
 		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx\_XC\_(\d*\_\d+)/)[1]] = z;
+		zArr[preStr.match(/function gz\$gwx_XC_(\d*_\d+)/)[1]] = z;
 	}
 	console.log('======================');
 	cb({"mul": zArr});
 }
 
+
 function catchZ(code, cb) {
-	let groupTest = code.match(/function gz\$gwx(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*\_\d+\)/g);
-	if (groupTest !== null) return catchZGroup(code, groupTest, cb);
-	// 走新
-	groupTest = code.match(/function gz\$gwx\_XC\_(\d*\_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\_XC\_\d*\_\d+\)/g);
-	if (groupTest !== null) return catchZGroupNew(code, groupTest, cb);
+	let zArr = {};
+	let _cb = ({mul}) => {
+		Object.assign(zArr, mul);
+	}
+	let groupTest = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*_\d+\)/g);
+	if (groupTest !== null) catchZGroup(code, groupTest, _cb);
+	// 补充函数类型
+	groupTest = code.match(/function gz\$gwx_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_XC_\d*_\d+\)/g);
+	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
 	console.log("groupTest:", groupTest);
+
+	// 完善zArr的获取逻辑, 兼容同时包含模式
+	if(Object.keys(zArr).length){
+		return cb({"mul": zArr});
+	}
 	// groupTest: [
 	// 	'function gz$gwx_1(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_1)',
 	// 	'function gz$gwx_2(){\nif( __WXML_GLOBAL__.ops_cached.$gwx_2)',
@@ -234,7 +244,7 @@ function restoreSingle(ops, withScope = false) {
 					ans = restoreNext(ops[1], true) + enBrace(sonName, '[');
 				else {
 					let attach = "";
-					if (/^[A-Za-z\_][A-Za-z\d\_]*$/.test(sonName)/*is a qualified id*/)
+					if (/^[A-Za-z_][A-Za-z\d_]*$/.test(sonName)/*is a qualified id*/)
 						attach = '.' + sonName;
 					else attach = enBrace(sonName, '[');
 					ans = restoreNext(ops[1], true) + attach;

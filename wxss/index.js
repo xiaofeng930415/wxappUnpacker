@@ -35,7 +35,6 @@ function doAppWxss(code) {
   const appWxssCodeModel = readSync(path.join(__dirname, '/mainCode.js'));
   let _code = appWxssCodeModel.replace('/* Replace Here */', list.join('\n'));
   write(_code, 'mainCodeNew.js');
-  debugger;
   return _code;
 }
 module.exports = {doAppWxss: doAppWxss};

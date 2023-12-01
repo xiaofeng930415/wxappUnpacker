@@ -34,7 +34,14 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 namePool[f.arguments[0].name].v[f.arguments[1].value] = z[f.arguments[2].value];
                                 break;
                             case "_rz":
-                                namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
+                                try {
+                                    namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
+                                } catch (error) {
+                                    console.error(error);
+                                    const rest = [f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value];
+                                    console.log('[f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value]');
+                                    console.log(rest);
+                                }
                                 break;
                             case "_":
                                 pushSon(f.arguments[0].name, namePool[f.arguments[1].name]);
@@ -210,14 +217,21 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             default: {
                                 let funName = dec.init.callee.name;
-                                let prefixList = ["gz$gwx_XC", "gz$gwx"];
-                                if (funName.startsWith(prefixList[0])) {
-                                    zMulName = funName.slice(prefixList[0].length + 1);
-                                    console.log('funName:', funName, ' zMulName', zMulName)
-                                } else if (funName.startsWith(prefixList[1])) {
-                                    zMulName = funName.slice(prefixList[1].length);
-                                    console.log('funName:', funName, ' zMulName', zMulName)
-                                } else throw Error("Unknown init callee " + funName);
+
+                                let zMulNamePatt = /(?<=(gz\$gwx_(XC_){0,1}))[\d|_]+/;
+                                zMulName = funName.match(zMulNamePatt)?.[0];
+                                if(!zMulName) {
+                                    throw Error("Unknown init callee " + funName);
+                                } 
+                                console.log('funName:', funName, ' zMulName', zMulName);
+                                // let prefixList = ["gz$gwx_XC", "gz$gwx"];
+                                // if (funName.startsWith(prefixList[0])) {
+                                //     zMulName = funName.slice(prefixList[0].length + 1);
+                                //     console.log('funName:', funName, ' zMulName', zMulName)
+                                // } else if (funName.startsWith(prefixList[1])) {
+                                //     zMulName = funName.slice(prefixList[1].length);
+                                //     console.log('funName:', funName, ' zMulName', zMulName)
+                                // } else throw Error("Unknown init callee " + funName);
                             }
                         }
                     } else if (dec.init.type == "FunctionExpression") {
@@ -412,7 +426,7 @@ function doWxs(code, name) {
     return wxsBeautify(code.slice(code.indexOf(before) + before.length, code.lastIndexOf('return nv_module.nv_exports;}')).replace(eval('/' + ('p_' + name).replace(/\//g, '\\/') + '/g'), '').replace(/nv\_/g, '').replace(/(require\(.*?\))\(\)/g,'$1'));
 }
 
-// 写一个
+// 写一个 有bug, 不支持 var x = ['xxx','xxx', ...]; 类型
 function transformCode({str, prefix = 'if(path&&e_[path]){', start = '{', end = '}'}) {
     if(!str.includes(prefix)){
         return str;
@@ -441,7 +455,6 @@ function transformCode({str, prefix = 'if(path&&e_[path]){', start = '{', end = 
     //     return findTheEndCore(item, start, end)
     // })];
     const [var_start, var_end] = ["var x=[", "];"];
-
     const _str_list = str_list.map((item, index) => {
         if(item.includes('var x=[];')){
             return item;
@@ -466,7 +479,38 @@ function transformCode({str, prefix = 'if(path&&e_[path]){', start = '{', end = 
     });
     if(_str_list)
     return _str_list.join('');
-  }
+}
+
+// 全新逻辑
+function isTransformNew(code, patt) {
+    // let patt = /var nv_require=function\(\)\{var nnm=\{.*\}.*\}.*return function\(n\)\{.*[\r\n\}]*\(\)/
+    let flag = patt.test(code);
+    return flag;
+}
+// 全新逻辑
+function transformNew(code, nv_require_patt) { // 从0提取所需代码
+    // 1 获取 nv_require
+    // let patt = /var nv_require=function\(\)\{var nnm=\{.*\}.*\}.*return function\(n\)\{.*[\r\n\}]*\(\)/
+    let nv_require_func = code.match(nv_require_patt)?.[0]; // nv_require 函数
+    // ToFixed TypeError [Error]: $gstack is not a function
+    nv_require_func = nv_require_func.replace('e.stack = $gstack(e.stack);', '');
+
+    // 2 获取 np_d 系列函数
+    let np_d_func_patt = /function np_\d+\(\)\{.*\}(\r|\n)*/g;
+    let np_d_func_list = code.match(np_d_func_patt); // np_d 函数
+
+    // 3 获取核心语句
+    let core_patt = /var x=\['.*'\];(.|\r|\n)*?(?=(if\(path&&e_\[path\]\)\{))/g
+    let core_list = code.match(core_patt);
+
+    // 4 拼接
+    let _code = [nv_require_func, ...np_d_func_list, ...core_list].join('\n\n');
+
+    write(code, path.join(__dirname, 'new_code_before.js'));
+    write(_code, path.join(__dirname, 'new_code_after.js'));
+
+    return _code;
+}
 
 function doFrame(name, cb, order, mainDir) {
     let moreInfo = order.includes("m");
@@ -478,95 +522,144 @@ function doFrame(name, cb, order, mainDir) {
             //// console.log('==============================');
             // console.info('code', code.slice(0,2000));
             //// console.log('==============================');
-            const before = "\nvar nv_require=function(){var nnm=";
-            code = code.slice(code.lastIndexOf(before) + before.length, code.lastIndexOf("if(path&&e_[path]){"));
-            json = code.slice(0, code.indexOf("};") + 1);
-            
-            try{
-                JSON.parse(json);
-                let endOfRequire = code.indexOf("()\r\n") + 4;
-                
-                if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
-                code = code.slice(endOfRequire);
-            }catch(e){
-                const _json = '{}';
-                // 如果格式化失败，则说明json不对
-                // code = code.replace(json, _json) // 可以不拿掉
-                json = _json;
-                let endOfRequire = code.indexOf("var x=[];");
-                if(endOfRequire === -1){
-                    let patt = /var x=\[.*?\];/
-                    let var_X = code.match(patt)?.[0];
-                    if(!var_X){
-                        throw new Error('找不到 var x=\[.*?\];');
+            let rD = {}, rE = {}, rF = {}, requireInfo = {}, x, vm;
+            let patt = /var nv_require=function\(\)\{var nnm=\{.*\}.*\}.*return function\(n\)\{.*[\r\n\}]*\(\)/;
+
+            if(isTransformNew(code, patt)){
+                // 新逻辑: nv_require 是一个小函数,闭包函数
+                // var nv_require=function\(\)\{var nnm=\{.*\}.*\}[\r\n\}]*\(\)
+                // var nv_require=function\(\)\{var nnm=\{.*\}.*\}.*return function\(n\)\{.*[\r\n\}]*\(\)
+    
+                // x 的话, 可以通过正则来算出全部
+                code = transformNew(code, patt);
+                vm = new VM({
+                    sandbox: {
+                        d_: rD, e_: rE, f_: rF, 
+                        _vmRev_(data) {
+                            [x, requireInfo] = data;
+                        }, 
+                        // nv_require(path) {
+                        //     return () => path;
+                        // }
                     }
-                    endOfRequire = code.indexOf(var_X);
-                }
-                
-                // 不兼容以下这种
-                // var x=['./components/courseRecord.wxml',...];
-                
-                
-                code = code.slice(endOfRequire);
-                //// console.log('endOfRequireendOfRequireendOfRequireendOfRequireendOfRequire', endOfRequire);
-                //// console.log('CCCCCode:', code.slice(0, 100));
-                code = transformCode({ str: code });
-
-                // //// console.log('JJJJJJJJJJJson:', json);
-                //TODO handle the exception
-                // 需要拿掉json的那一段
-                //// console.log('CCCCCode:', code.slice(0, 100));
-                //// console.log('==============================');
-                // code = code.replace(json, '{}');
-                // //// console.log('code:', code.slice(0, 50));
-            }
-            
-
-
-            // let endOfRequire = code.indexOf("()\r\n") + 4;
-            // if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
-            // code = code.slice(endOfRequire);
-            let rD = {}, rE = {}, rF = {}, requireInfo = {}, x, vm = new VM({
-                sandbox: {
-                    d_: rD, e_: rE, f_: rF, _vmRev_(data) {
-                        [x, requireInfo] = data;
-                    }, nv_require(path) {
-                        return () => path;
-                    }
-                }
-            });
-
-            let vmCode = code + "\n_vmRev_([x," + json + "])";
-
-            // //// console.log('vmCode\n', vmCode);
-            try{
-                vm.run(vmCode);
-            }catch(e){
-                // 运行失败,尝试转化一下代码
-                let endOfRequire = code.indexOf("var x=[];");
-                if(endOfRequire === -1){
-                    let patt = /var x=\[.*?\];/
-                    let var_X = code.match(patt)?.[0];
-                    if(!var_X){
-                        throw new Error('找不到 var x=\[.*?\];');
-                    }
-                    endOfRequire = code.indexOf(var_X);
-                }
-                code = code.slice(endOfRequire);
-                write(code, path.join(__dirname, '_code_before.js'));
-                code = transformCode({ str: code });
-                write(code, path.join(__dirname, '_code_after.js'));
+                });
+                let json = '{}';
                 let vmCode = code + "\n_vmRev_([x," + json + "])";
+                
+                // //// console.log('vmCode\n', vmCode);
                 try{
                     vm.run(vmCode);
+                    x = Object.keys(rE);
                 }catch(e){
                     //TODO handle the exception
                     // 还出错就没办法了
-                    console.error(e);
+                    console.error('[New]', e);
+                    throw new Error('[New]', e);
+                }
+
+            } else {
+                // 原逻辑是建立在 nv_require 是一个大函数的前提下的,所有的代码都是在nv_require里提取的.
+                const before = "\nvar nv_require=function(){var nnm=";
+                code = code.slice(code.lastIndexOf(before) + before.length, code.lastIndexOf("if(path&&e_[path]){"));
+                let json = code.slice(0, code.indexOf("};") + 1);
+                try{
+                    JSON.parse(json);
+                    let endOfRequire = code.indexOf("()\r\n") + 4;
+                    
+                    if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
+                    code = code.slice(endOfRequire);
+                }catch(e){
+                    let endOfRequire = code.indexOf("()\r\n") + 4;
+                    
+                    if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
+                    code = code.slice(endOfRequire);
+
+                    const _json = '{}';
+                    // 如果格式化失败，则说明json不对
+                    // code = code.replace(json, _json) // 可以不拿掉
+                    json = _json;
+                    endOfRequire = code.indexOf("var x=[];");
+                    let isMatchX = false; // 标识符,判断是否是 var x=\[.*?\];
+                    if(endOfRequire === -1){
+                        let patt = /var x=\[.*?\];/
+                        let var_X = code.match(patt)?.[0];
+                        if(!var_X){
+                            throw new Error('找不到 var x=\[.*?\];');
+                        }
+                        isMatchX = true; 
+                        endOfRequire = code.indexOf(var_X);
+                    }
+                    
+                    // 不兼容以下这种
+                    // var x=['./components/courseRecord.wxml',...];
+                    
+                    
+                    code = code.slice(endOfRequire);
+                    //// console.log('endOfRequireendOfRequireendOfRequireendOfRequireendOfRequire', endOfRequire);
+                    //// console.log('CCCCCode:', code.slice(0, 100));
+                    if(!isMatchX) {
+                        code = transformCode({ str: code });
+                    }
+                    // //// console.log('JJJJJJJJJJJson:', json);
+                    //TODO handle the exception
+                    // 需要拿掉json的那一段
+                    //// console.log('CCCCCode:', code.slice(0, 100));
+                    //// console.log('==============================');
+                    // code = code.replace(json, '{}');
+                    // //// console.log('code:', code.slice(0, 50));
                 }
                 
-                // write(vmCode, path.join(__dirname, '____vmCode.js'));
-                //TODO handle the exception
+
+
+                // let endOfRequire = code.indexOf("()\r\n") + 4;
+                // if (endOfRequire == 4 - 1) endOfRequire = code.indexOf("()\n") + 3;
+                // code = code.slice(endOfRequire);
+                // let rD = {}, rE = {}, rF = {}, requireInfo = {},  x, 
+                vm = new VM({
+                    sandbox: {
+                        d_: rD, e_: rE, f_: rF, _vmRev_(data) {
+                            [x, requireInfo] = data;
+                        }, nv_require(path) {
+                            return () => path;
+                        }
+                    }
+                });
+
+                let vmCode = code + "\n_vmRev_([x," + json + "])";
+                // //// console.log('vmCode\n', vmCode);
+                try{
+                    vm.run(vmCode);
+                }catch(e){
+                    console.error(552, e);
+
+                    // 运行失败,尝试转化一下代码
+                    let endOfRequire = code.indexOf("var x=[];");
+                    let isMatchX = false;
+                    if(endOfRequire === -1){
+                        let patt = /var x=\[.*?\];/
+                        let var_X = code.match(patt)?.[0];
+                        if(!var_X){
+                            throw new Error('找不到 var x=\[.*?\];');
+                        }
+                        isMatchX = true;
+                        endOfRequire = code.indexOf(var_X);
+                    }
+                    code = code.slice(endOfRequire);
+                    write(code, path.join(__dirname, '_code_before.js'));
+                    !isMatchX && (code = transformCode({ str: code }));
+                    write(code, path.join(__dirname, '_code_after.js'));
+                    let vmCode = code + "\n_vmRev_([x," + json + "])";
+                    try{
+                        vm.run(vmCode);
+                    }catch(e){
+                        //TODO handle the exception
+                        // 还出错就没办法了
+                        console.error(577, e);
+                    }
+                    
+                    // write(vmCode, path.join(__dirname, '____vmCode.js'));
+                    //TODO handle the exception
+                }
             }
             //// console.log('==============================');
             console.log("rE:\n", rE);
@@ -575,9 +668,9 @@ function doFrame(name, cb, order, mainDir) {
             console.log('==============================');
             console.log("rF:\n", rF);
             //// console.log('==============================');
-            //// console.log("x:\n", x);
+            console.log("x:\n", x);
             //// console.log('==============================');
-            //// console.log("requireInfo:\n", requireInfo);
+            console.log("requireInfo:\n", requireInfo);
             //// console.log('==============================');
             let dir = mainDir || path.dirname(name), pF = [];
             for (let info in rF) if (typeof rF[info] == "function") {

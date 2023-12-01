@@ -49,7 +49,10 @@ function splitJs(name, cb, mainDir) {
         if (isSubPkg) {
             code = code.slice(code.indexOf("define("));
         }
+        
         console.log('splitJs: ' + name);
+        // ToFixed TypeError [Error]: $gstack is not a function
+        code = code.replace('e.stack = $gstack(e.stack);', '');
         vm.run(code);
         console.log("Splitting \"" + name + "\" done.");
         if (!needDelList[name]) needDelList[name] = 8;

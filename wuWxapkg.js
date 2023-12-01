@@ -4,6 +4,8 @@ const wuCfg = require("./wuConfig.js");
 const wuMl = require("./wuWxml.js");
 const wuSs = require("./wuWxss.js");
 const path = require("path");
+const del = require('./utils/del.js');
+
 const fs = require("fs");
 
 function header(buf) {
@@ -194,17 +196,28 @@ function doFile(name, cb, order) {
             global.subPack = ord.slice(3);
         }
     }
+    
+
+
     console.log("Unpack file " + name + "...");
     let dir = path.resolve(name, "..", path.basename(name, ".wxapkg"));
+
+    const _cb = () => {
+        // 删除所有冗余文件
+        del.doDel(dir);
+        cb?.(arguments);
+    }
+
     wu.get(name, buf => {
         let [infoListLength, dataLength] = header(buf.slice(0, 14));
         if (order.includes("o")) wu.addIO(console.log.bind(console), "Unpack done.");
-        else wu.addIO(packDone, dir, cb, order);
+        else wu.addIO(packDone, dir, _cb, order);
         saveFile(dir, buf, genList(buf.slice(14, infoListLength + 14)));
     }, {});
 }
 
 module.exports = {doFile: doFile};
+// 主入口
 if (require.main === module) {
     wu.commandExecute(doFile, "Unpack a wxapkg file.\n\n[-o] [-d] [-s=<Main Dir>] <files...>\n\n-d Do not delete transformed unpacked files.\n-o Do not execute any operation after unpack.\n-s=<Main Dir> Regard all packages provided as subPackages and\n              regard <Main Dir> as the directory of sources of the main package.\n<files...> wxapkg files to unpack");
 }

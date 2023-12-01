@@ -135,6 +135,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
         console.log('do css runVm: ' + name);
         let flag = false;
         try {
+            // ToFixed TypeError [Error]: $gstack is not a function
+            code = code.replace('e.stack = $gstack(e.stack);', '');
             vm.run(code);
             flag = true;
         } catch (error) {
@@ -398,8 +400,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 let delFiles = {};
                 for (let name of files) delFiles[name] = 8;
                 delFiles[frameFile] = 4;
-				// cb(delFiles);
-                cb({})
+                // cb({})
+				cb(delFiles); // mark 删除文件
 			});
 		});
 	});

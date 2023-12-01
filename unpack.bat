@@ -1,4 +1,7 @@
-﻿# WXAPPUNPACKER_PATH 项目路径
+﻿# author: fido.xiao
+# date: 2019/03/16
+
+# WXAPPUNPACKER_PATH 项目路径
 set WXAPPUNPACKER_PATH=F:\GitStore\wxappUnpacker
 
 set FILE_FORMAT=wxapkg
