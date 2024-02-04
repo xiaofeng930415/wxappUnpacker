@@ -218,7 +218,7 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                             default: {
                                 let funName = dec.init.callee.name;
 
-                                let zMulNamePatt = /(?<=(gz\$gwx_(XC_){0,1}))[\d|_]+/;
+                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,1}_(XC_){0,1}))[\d|_]+/;
                                 zMulName = funName.match(zMulNamePatt)?.[0];
                                 if(!zMulName) {
                                     throw Error("Unknown init callee " + funName);
@@ -497,7 +497,7 @@ function transformNew(code, nv_require_patt) { // 从0提取所需代码
 
     // 2 获取 np_d 系列函数
     let np_d_func_patt = /function np_\d+\(\)\{.*\}(\r|\n)*/g;
-    let np_d_func_list = code.match(np_d_func_patt); // np_d 函数
+    let np_d_func_list = code.match(np_d_func_patt) || []; // np_d 函数
 
     // 3 获取核心语句
     let core_patt = /var x=\['.*'\];(.|\r|\n)*?(?=(if\(path&&e_\[path\]\)\{))/g

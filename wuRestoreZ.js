@@ -29,7 +29,7 @@ function catchZGroupNew(code, groupPreStr, cb) {
 		// console.log('\ncontent:' + content);
 		vm.run(content);
 		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx_XC_(\d*_\d+)/)[1]] = z;
+		zArr[preStr.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)/)[1]] = z;
 	}
 	console.log('======================');
 	cb({"mul": zArr});
@@ -44,7 +44,7 @@ function catchZ(code, cb) {
 	let groupTest = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*_\d+\)/g);
 	if (groupTest !== null) catchZGroup(code, groupTest, _cb);
 	// 补充函数类型
-	groupTest = code.match(/function gz\$gwx_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_XC_\d*_\d+\)/g);
+	groupTest = code.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d{0,1}_XC_\d*_\d+\)/g);
 	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
 	console.log("groupTest:", groupTest);
 

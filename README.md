@@ -50,6 +50,9 @@ node wuWxapkg.js  .wxapkg
     - 解析子包只能是: `node wuWxapkg.js -s=../master-xxx testpkg/sub-1-xxx.wxapkg`
     - 目前支持 `./bingo.bat testpkg/sub-1-xxx.wxapkg -s ../master-xxx`
 
+
+./bingo.bat Z:/GitStore/test/_packageSmart_.wxapkg -s Z:/GitStore/test/__APP__
+
 TIP
 > -s 参数可为相对路径或绝对路径, 推荐使用绝对路径, 因为相对路径的起点不是当前目录 而是子包解包后的目录
 
@@ -89,10 +92,6 @@ dir: C:\Users\xiaogf007\Documents\leidian9\Pictures\ciniao\_1637444913_17  error
 可以参考
 _-1431017214_12
 
-
-
-
-
 PC小程序地址
 C:\Users\Administrator\Documents\WeChat Files\Applet
 
@@ -120,5 +119,7 @@ unp unpack -s <decrypt>.wxapkg -d <dist path>
 
 必须cd进入相应的路径   C:/Users/Administrator/Documents/"WeChat Files"/Applet
 才能执行   unp decrypt -s __APP__.wxapkg  -d APP.wxapkg
+
+原因: 路径中不能包含空格,即使是做了处理,也仍会生成失败
 
 
