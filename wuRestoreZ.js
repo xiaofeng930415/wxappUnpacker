@@ -11,7 +11,8 @@ function catchZGroup(code, groupPreStr, cb) {
 		vm.run(content);
 		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
 		// zArr[preStr.match(/function gz\$gwx(\d*_\d+)/)[1]] = z; 获取 => _数字
-		zArr[preStr.match(/function gz\$gwx_(\d+)/)[1]] = z; // 获取 => 数字
+		// zArr[preStr.match(/function gz\$gwx_(\d+)/)[1]] = z; // 获取 => 数字
+		zArr[preStr.match(/function gz\$gwx\d*_(\d+)/)[1]] = z; // 兼容前面两种情况
 	}
 	cb({"mul": zArr});
 }
