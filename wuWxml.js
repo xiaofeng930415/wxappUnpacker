@@ -35,10 +35,8 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             case "_rz":
                                 try {
-                                    debugger
                                     namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
                                 } catch (error) {
-                                    debugger;
                                     console.error(error);
                                     const rest = [f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value];
                                     console.log('[f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value]');
@@ -227,7 +225,6 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 Object.assign(namePool[obj].v, {is: is, data: data});
                             }
                                 break;
-
                             default: {
                                 let funName = dec.init.callee.name;
 
