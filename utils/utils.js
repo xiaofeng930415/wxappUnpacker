@@ -1,4 +1,14 @@
 const { exec } = require('child_process');
+/* eslint-disable no-undef */
+const path = require("path");
+const fs = require("fs");
+const {
+  glob,
+  globSync,
+  // globStream,
+  // globStreamSync,
+  // Glob,
+} = require("glob");
 
 function execCmd(commands = []) {
     // const cards = await jiraData.getCardsInTest();
@@ -23,21 +33,8 @@ function execCmd(commands = []) {
     }
 };
 
-
-/* eslint-disable no-undef */
-const path = require("path");
-const fs = require("fs");
-const {
-  glob,
-  globSync,
-  // globStream,
-  // globStreamSync,
-  // Glob,
-} = require("glob");
-
 async function getFiles(pattern = "**/*.*", options) {
   const files = await glob(pattern, { ignore: "node_modules/**", ...options });
-  debugger;
   return files;
 }
 function getFilesSync(pattern = "**/*.*", options) {

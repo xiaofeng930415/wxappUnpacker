@@ -36,6 +36,28 @@ function catchZGroupNew(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
+function catchZGroupNewNew(code, groupPreStr, cb) {
+	// gz$gwx_wxfa43a4a7041a84de_XC_0_1
+	// gz$gwx_wxfa43a4a7041a84de_XC_1_1
+	// gz$gwx_wxfa43a4a7041a84de_XC_8_1
+	// gz$gwx_wxfa43a4a7041a84de_XC_12_1
+	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
+	let zArr = {};
+	for (let preStr of groupPreStr) {
+		let content = code.slice(code.indexOf(preStr)), z = [];
+		content = content.slice(content.indexOf("(function(z){var a=11;"));
+		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
+		let vm = new VM({sandbox: {z: z, debugInfo: []}});
+		// console.log('======================');
+		// console.log('preStr:' + preStr);
+		// console.log('\ncontent:' + content);
+		vm.run(content);
+		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
+		zArr[preStr.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1/)[1]] = z;
+	}
+	console.log('======================');
+	cb({"mul": zArr});
+}
 
 function catchZ(code, cb) {
 	let zArr = {};
@@ -47,6 +69,9 @@ function catchZ(code, cb) {
 	// 补充函数类型
 	groupTest = code.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d{0,1}_XC_\d*_\d+\)/g);
 	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
+	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
+	// groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_\d+\)/g);
+	if (groupTest !== null) catchZGroupNewNew(code, groupTest, _cb);
 	console.log("groupTest:", groupTest);
 
 	// 完善zArr的获取逻辑, 兼容同时包含模式
@@ -76,8 +101,22 @@ function catchZ(code, cb) {
 		}
 	});
 	let lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx=z;");
-	if (lastPtr == -1) lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx");
-	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), lastPtr + 4);
+	let step = 0;
+	if (lastPtr == -1) {
+		lastPtr = code.lastIndexOf("(z);__WXML_GLOBAL__.ops_set.$gwx");
+	} else {
+		step = 4;
+	}
+	if (lastPtr == -1) {
+		lastPtr = code.lastIndexOf("__WXML_GLOBAL__.ops_set.$gwx=z;");
+	} else {
+		step = 4;
+	}
+	if (lastPtr == -1) lastPtr = code.lastIndexOf("__WXML_GLOBAL__.ops_set.$gwx");
+	if (lastPtr == -1) {
+		throw new Error("lastPtr == -1");
+	} 
+	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), lastPtr + step);
 	vm.run(code);
 	console.log('code:', code);
 	cb(z);

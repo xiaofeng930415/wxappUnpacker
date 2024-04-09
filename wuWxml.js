@@ -35,8 +35,10 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             case "_rz":
                                 try {
+                                    debugger
                                     namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
                                 } catch (error) {
+                                    debugger;
                                     console.error(error);
                                     const rest = [f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value];
                                     console.log('[f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value]');
@@ -123,18 +125,28 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 push(dec.id.name, {tag: "block", son: [], v: {}});
                                 break;
                             case "_o":
+                                var content = z[dec.init.arguments[0].value]
                                 push(dec.id.name, {
                                     tag: "__textNode__",
                                     textNode: true,
-                                    content: z[dec.init.arguments[0].value]
+                                    content
                                 });
+                                if(!content){
+                                    debugger
+                                }
                                 break;
                             case "_oz":
+                                var content = z.mul[zMulName][dec.init.arguments[1].value]
                                 push(dec.id.name, {
                                     tag: "__textNode__",
                                     textNode: true,
-                                    content: z.mul[zMulName][dec.init.arguments[1].value]
+                                    content
                                 });
+                                if(!content){
+                                    debugger
+                                } else {
+                                    // debugger;
+                                }
                                 break;
                             case "_m": {
                                 if (dec.init.arguments[2].elements.length > 0)
@@ -215,15 +227,28 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 Object.assign(namePool[obj].v, {is: is, data: data});
                             }
                                 break;
+
                             default: {
                                 let funName = dec.init.callee.name;
 
                                 let zMulNamePatt = /(?<=(gz\$gwx\d{0,1}_(XC_){0,1}))[\d|_]+/;
                                 zMulName = funName.match(zMulNamePatt)?.[0];
                                 if(!zMulName) {
-                                    throw Error("Unknown init callee " + funName);
+                                    // 'gz$gwx_wxfa43a4a7041a84de_XC_12_1' 提取12
+                                    // 'gz$gwx_wxfa43a4a7041a84de_1' 提取1
+                                    // zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(XC_)?(\d+)(_1)?/;
+                                    zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(XC_|)(\d+)(_1)?/;
+                                    // zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(\d+)/;
+                                    zMulName = funName.match(zMulNamePatt)?.[2];
+                                    // if(!zMulName){
+
+                                    // }
+                                } 
+                                if(!zMulName) {
+                                    throw Error("Unknown init callee " + funName, "\n出现新类型了, wuWXml.js处理");
                                 } 
                                 console.log('funName:', funName, ' zMulName', zMulName);
+                                debugger;
                                 // let prefixList = ["gz$gwx_XC", "gz$gwx"];
                                 // if (funName.startsWith(prefixList[0])) {
                                 //     zMulName = funName.slice(prefixList[0].length + 1);
@@ -254,9 +279,13 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                         else if (e.test.callee.name == "_oz") {
                             try{
                                 return z.mul[zMulName][e.test.arguments[1].value];
-                            }catch(e){
+                            }catch(e_){
+                                console.log("z.mul\n",z.mul)
+                                console.log("zMulName\n",zMulName)
+                                console.log("e.test.arguments\n",e?.test?.arguments)
+                                debugger;
                                 //TODO handle the exception
-                                throw new Error(e);
+                                throw new Error(e_);
                             }
                         }
                         else throw Error("Unknown if statement test callee name:" + e.test.callee.name);
@@ -289,7 +318,10 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
 }
 
 function wxmlify(str, isText) {
-    if (typeof str == "undefined" || str === null) return "Empty";//throw Error("Empty str in "+(isText?"text":"prop"));
+    if (typeof str == "undefined" || str === null) {
+        console.trace("str, isText", str, isText)
+        return "Empty";//throw Error("Empty str in "+(isText?"text":"prop"));
+    }
     if (isText) return str;//may have some bugs in some specific case(undocumented by tx)
     else return str.replace(/"/g, '\\"');
 }
@@ -297,6 +329,10 @@ function wxmlify(str, isText) {
 function elemToString(elem, dep, moreInfo = false) {
     const longerList = [];//put tag name which can't be <x /> style.
     const indent = ' '.repeat(4);
+
+    if(!elem.content && isTextTag(elem)){
+        debugger;
+    }
 
     function isTextTag(elem) {
         return elem.tag == "__textNode__" && elem.textNode;

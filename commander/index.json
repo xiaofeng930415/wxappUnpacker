@@ -1,0 +1,12 @@
+{
+  "pc": {
+    "Applet_Path": "C:/Users/Administrator/Documents/WeChat Files/Applet",
+    "WxappUnpacker": "F:/GitStore/wxappUnpacker",
+    "DistPath": "Z:/GitStore/test"
+  },
+  "laptop": {
+    "Applet_Path": "C:/Users/xiaogf007/Documents/WeChat Files/Applet",
+    "WxappUnpacker": "D:/GitStore/wxappUnpacker",
+    "DistPath": "E:\\aa_mp"
+  }
+}

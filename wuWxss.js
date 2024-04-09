@@ -10,13 +10,14 @@ const cheerio = require('cheerio');
 function write(content, filename) {
     const _filename = filename || new Date().getTime() + '.txt';
     const _path = path.join(__dirname, `日志_${_filename}`);
-    fs.writeFile(_path, content,(err, doc) => {
-        if(err != null){
-            console.error(err);
-            return false;
-        }
-        // console.log('文件成功写入了！');
-    })
+    fs.writeFileSync(_path, content);
+    // ,(err, doc) => {
+    //     if(err != null){
+    //         console.error(err);
+    //         return false;
+    //     }
+    //     // console.log('文件成功写入了！');
+    // })
 }
 
 function doWxss(dir, cb, mainDir, nowDir) {
@@ -319,7 +320,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 scriptCode = scriptCode.slice(index);
                 if(isMatch){
                     // scriptCode = "(function(){" + scriptCode; // .replace(" })(); ", '');
-                    scriptCode = scriptCode.replace("})();     var __pluginFrameEndTime_wx4d2deeab3aed6e5a__", 'var __pluginFrameEndTime_wx4d2deeab3aed6e5a__');
+                    // scriptCode = scriptCode.replace("})();     var __pluginFrameEndTime_wx4d2deeab3aed6e5a__", 'var __pluginFrameEndTime_wx4d2deeab3aed6e5a__');
+                    scriptCode = scriptCode.replace(/\}\)\(\);\s*var __pluginFrameEndTime_/, 'var __pluginFrameEndTime_');
                 }
             }
 
@@ -343,7 +345,14 @@ function doWxss(dir, cb, mainDir, nowDir) {
                     ';var __COMMON_STYLESHEETS__ = __COMMON_STYLESHEETS__||{};' +
                     commonStyles +
                     ';__COMMON_STYLESHEETS__;'
-                  commonStyle = new VM().run(commonStyles)
+                    try {
+                        commonStyle = new VM().run(commonStyles)
+                    } catch (error) {
+                        commonStyle = {}
+                        // write(commonStyles, 'commonStyles.js')
+                        // 暂时不管这里，设置其为正常流程
+                        // throw new Error(error)
+                    }
                 }
 
             //remove setCssToHead function
