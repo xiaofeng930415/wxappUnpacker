@@ -2,7 +2,7 @@
 # date: 2019/03/16
 
 # WXAPPUNPACKER_PATH 项目路径
-set WXAPPUNPACKER_PATH=F:\GitStore\wxappUnpacker
+set WXAPPUNPACKER_PATH=D:\GitStore\wxappUnpacker
 
 set FILE_FORMAT=wxapkg
 
@@ -22,7 +22,7 @@ set de_dir=%1
 
       set de_dir=%WXAPPUNPACKER_PATH%
 
-echo %de_dir%
+echo %de_dir% 
 
 echo "for wxapkg in `find %de_dir% "*.${FILE_FORMAT}"`"
 
