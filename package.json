@@ -28,6 +28,7 @@
     "esprima": "^4.0.0",
     "glob": "^9.3.5",
     "js-beautify": "^1.7.5",
+    "jsdom": "^16.7.0",
     "uglify-es": "^3.3.9",
     "vm2": "^3.6.0",
     "webpack-unpack": "^2.0.0"

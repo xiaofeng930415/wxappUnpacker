@@ -46,8 +46,23 @@ function splitJs(name, cb, mainDir) {
                 }
             }
         });
+        // 我怀疑是有些子包是独立子包,有些不是,也有可能就是提取代码有问题,不是正则模式当然会有问题
+        // 解决方案1: 1直接移除,但其他子包有这个问题依然能跑
+        // 解决方案2: 出现的问题是,{}不成对 采用
         if (isSubPkg) {
-            code = code.slice(code.indexOf("define("));
+            const idx = code.indexOf("define(");
+            if (idx !== -1) {
+                const code2 = code.slice(idx);
+                let leftCount = (code2.match(/\{/g) || []).length;
+                let rightCount = (code2.match(/\}/g) || []).length;
+                if (leftCount === rightCount) {
+                    leftCount = (code2.match(/\(/g) || []).length;
+                    rightCount = (code2.match(/\)/g) || []).length;
+                    if (leftCount === rightCount) {
+                        code = code2;
+                    }
+                }
+            }
         }
         
         console.log('splitJs: ' + name);
