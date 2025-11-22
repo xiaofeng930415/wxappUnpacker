@@ -6,6 +6,7 @@ const {VM} = require('vm2');
 const cssbeautify = require('cssbeautify');
 const csstree = require('css-tree');
 const cheerio = require('cheerio');
+const { JSDOM } = require('jsdom');
 
 function write(content, filename) {
     const _filename = filename || new Date().getTime() + '.txt';
@@ -119,8 +120,98 @@ function doWxss(dir, cb, mainDir, nowDir) {
 
     function runVM(name, code) {
         let wxAppCode = {}, handle = {cssFile: name};
+        // 方案一: 最小化的 document 全局对象，供转译代码使用
+        /* const documentStub = {
+            head: {
+                appendChild(node) {
+                    (this.children || (this.children = [])).push(node);
+                    (this.childNodes || (this.childNodes = [])).push(node);
+                },
+                children: [],
+                childNodes: []
+            },
+            body: {
+                appendChild(node) {
+                    (this.children || (this.children = [])).push(node);
+                    (this.childNodes || (this.childNodes = [])).push(node);
+                },
+                children: [],
+                childNodes: []
+            },
+            styleSheets: [{
+                cssRules: [],
+                insertRule(rule, index) {
+                    if (typeof index !== 'number' || index < 0 || index > this.cssRules.length) index = this.cssRules.length;
+                    this.cssRules.splice(index, 0, rule);
+                },
+                deleteRule(index) {
+                    if (typeof index === 'number' && index >= 0 && index < this.cssRules.length) this.cssRules.splice(index, 1);
+                }
+            }],
+            createElement(tag) {
+                const el = {
+                    tagName: String(tag).toUpperCase(),
+                    style: {},
+                    setAttribute() {},
+                    appendChild(child) {
+                        (this.children || (this.children = [])).push(child);
+                        (this.childNodes || (this.childNodes = [])).push(child);
+                        if (child && typeof child.textContent === 'string') {
+                            this.textContent = (this.textContent || '') + child.textContent;
+                            this.innerHTML = (this.innerHTML || '') + child.textContent;
+                        }
+                    },
+                    removeChild() {},
+                    innerHTML: '',
+                    textContent: '',
+                    children: [],
+                    childNodes: []
+                };
+                if (el.tagName === 'STYLE') {
+                    el.sheet = {
+                        cssRules: [],
+                        insertRule(rule, index) {
+                            if (typeof index !== 'number' || index < 0 || index > this.cssRules.length) index = this.cssRules.length;
+                            this.cssRules.splice(index, 0, rule);
+                        },
+                        deleteRule(index) {
+                            if (typeof index === 'number' && index >= 0 && index < this.cssRules.length) this.cssRules.splice(index, 1);
+                        }
+                    };
+                }
+                return el;
+            },
+            createElementNS(ns, tag) { return this.createElement(tag); },
+            createTextNode(text) {
+                const t = String(text ?? '');
+                return { nodeType: 3, textContent: t, data: t, nodeValue: t, toString() { return t; } };
+            },
+            createComment(text) {
+                const t = String(text ?? '');
+                return { nodeType: 8, textContent: t, data: t, nodeValue: t, toString() { return t; } };
+            },
+            querySelector() { return null; },
+            querySelectorAll() { return []; },
+            getElementById() { return null; },
+            getElementsByTagName() { return []; },
+            addEventListener() {},
+            removeEventListener() {}
+        }; */
+        // 方案二: 使用 jsdom 构造浏览器环境 赞!!!
+        const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { pretendToBeVisual: true, url: 'https://example.com/' });
+        const browserWindow = dom.window;
+        const jsdomDocument = browserWindow.document;
+        // 将必要对象挂到 window，供代码直接访问
+        browserWindow.__wxAppCode__ = wxAppCode;
+        browserWindow.setCssToHead = cssRebuild.bind(handle);
+        // 创建 VM 并把 jsdom 的 window/document 注入到 sandbox
         let vm = new VM({
             sandbox: Object.assign(new GwxCfg(), {
+                document: jsdomDocument,
+                window: browserWindow,
+                navigator: browserWindow.navigator,
+                location: browserWindow.location,
+                __subPageFrameReady__: () => {},
                 __wxAppCode__: wxAppCode,
                 setCssToHead: cssRebuild.bind(handle),
                 $gwx(path, global) {
