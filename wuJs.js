@@ -14,7 +14,10 @@ function splitJs(name, cb, mainDir) {
     if (isSubPkg) {
         dir = mainDir;
     }
-    wu.get(name, code => {
+    // 读取为 Buffer，避免任何编码层面的字符解释（如反斜杠转义）
+    wu.get(name, codeBuf => {
+        let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
+        debugger;
         let needDelList = {};
         let vm = new VM({
             sandbox: {
@@ -32,6 +35,7 @@ function splitJs(name, cb, mainDir) {
                         res = jsBeautify(bcode);
                     }
                     console.log(dir, name);
+                    debugger;
                     needDelList[path.resolve(dir, name)] = -8;
                     wu.save(path.resolve(dir, name), jsBeautify(res));
                 },
@@ -53,11 +57,19 @@ function splitJs(name, cb, mainDir) {
         console.log('splitJs: ' + name);
         // ToFixed TypeError [Error]: $gstack is not a function
         code = code.replace('e.stack = $gstack(e.stack);', '');
-        vm.run(code);
+        debugger;
+        try {
+            vm.run(code);
+        } catch (e) {
+            console.log("Fail to run \"" + name + "\".");
+            console.log(e);
+            debugger;
+            throw e;
+        }
         console.log("Splitting \"" + name + "\" done.");
         if (!needDelList[name]) needDelList[name] = 8;
         cb(needDelList);
-    });
+    }, { encoding: null });
 }
 
 module.exports = {jsBeautify: jsBeautify, wxsBeautify: js_beautify, splitJs: splitJs};

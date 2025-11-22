@@ -548,7 +548,8 @@ function transformNew(code, nv_require_patt) { // 从0提取所需代码
 function doFrame(name, cb, order, mainDir) {
     let moreInfo = order.includes("m");
     wxsList = {};
-    wu.get(name, code => {
+    wu.get(name, codeBuf => {
+        let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
         getZ(code, z => {
             //// console.log('==============================');
             // console.info('name', name, '\nz', z);
@@ -725,7 +726,7 @@ function doFrame(name, cb, order, mainDir) {
             for (let name in rE) tryWxml(dir, name, rE[name].f.toString(), z, x, rD[name], wxsList, moreInfo);
             cb({[name]: 4});
         });
-    });
+    }, { encoding: null });
 }
 
 module.exports = {doFrame: doFrame};

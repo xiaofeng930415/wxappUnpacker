@@ -96,6 +96,7 @@ function save(name, content) {
     }));
 }
 
+// 兼容：默认以 utf8 文本读取；当调用方传入 { encoding: null } 时返回 Buffer
 function get(name, cb, opt = {encoding: 'utf8'}) {
     ioEvent.encount();
     ioLimit.runWithCb(fs.readFile.bind(fs), name, opt, (err, data) => {
