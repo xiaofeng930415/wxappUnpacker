@@ -20,7 +20,28 @@ function header(buf) {
     console.log("  dataLength: ", dataLength);
     let lastMark = buf.readUInt8(13);
     console.log("  lastMark: 0x%s", lastMark.toString(16));
-    if (firstMark != 0xbe || lastMark != 0xed) throw Error("Magic number is not correct!");
+
+    // 添加数据有效性检查
+    if (infoListLength <= 0 || infoListLength > buf.length || dataLength <= 0 || dataLength > buf.length) {
+        throw Error("文件格式错误：数据长度无效");
+    }
+
+    const VERSION_MAP = {
+        0xbe: '标准包格式',
+        0xce: '测试版格式', 
+        0xae: '企业定制格式'
+    };
+    
+    if (!VERSION_MAP[firstMark]) {
+        console.warn('⚠️ 未知包格式: 0x%s (%s)', firstMark.toString(16), VERSION_MAP[firstMark] || '未识别版本');
+    }
+    
+    if (firstMark != 0xbe || lastMark != 0xed) {
+        console.warn('⚠️ 魔数校验未通过（预期 BE|ED，实际 %s|%s），继续尝试解包...', 
+            firstMark.toString(16).padStart(2, '0').toUpperCase(),
+            lastMark.toString(16).padStart(2, '0').toUpperCase());
+    }
+
     return [infoListLength, dataLength];
 }
 
