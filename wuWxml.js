@@ -8,6 +8,63 @@ const {VM} = require('vm2');
 const escodegen = require('escodegen');
 const { write } = require('./utils.js');
 
+/**
+ * 从 z.mul 中获取值，优先嵌套键（zmul[key1][key2]），其次组合键（`${key1}_${key2}`）。
+ * @param {Object} zmul z.mul 对象
+ * @param {string|number} key1 第一层键
+ * @param {string|number} key2 第二层键
+ * @returns {*} 找不到返回 null（不抛异常，避免影响上层流程）
+ */
+function getZmulValue(zmul, key1, key2) {
+    try {
+        // 获取 z.mul 的值：优先从嵌套键（zmul[key1][key2]）读取；若不存在则尝试组合键（zmul[`${key1}_${key2}`]）。
+        // 参数校验：
+        // - zmul 必须为对象；key1 与 key2 不得为 undefined 或 null；
+        // - 若嵌套键存在且对应为对象，则优先读取其子键；否则尝试组合键；
+        // - 均不存在时返回 null；不抛异常避免影响上层流程。
+        if (!zmul || typeof zmul !== "object") return null;
+        if (key1 === undefined || key1 === null || key2 === undefined || key2 === null) return null;
+
+        let k1 = (typeof key1 === "string" || typeof key1 === "number") ? key1 : String(key1);
+        let k2 = (typeof key2 === "string" || typeof key2 === "number") ? key2 : String(key2);
+
+
+        // 1) 尝试嵌套键：zmul[k1][k2]
+        if (Object.prototype.hasOwnProperty.call(zmul, k1)) {
+            const sub = zmul[k1];
+            if (sub && typeof sub === "object" && Object.prototype.hasOwnProperty.call(sub, k2)) {
+                return sub[k2];
+            }
+        }
+        
+        // if(Object.prototype.hasOwnProperty.call(zmul, `${k1}_1`)) {
+        //     // 1.2) 尝试嵌套键：zmul[`${k1}_1`][k2]
+        //     const sub = zmul[`${k1}_1`];
+        //     if (sub && typeof sub === "object" && Object.prototype.hasOwnProperty.call(sub, k2)) {
+        //         return sub[k2];
+        //     }
+        // }
+
+        // 2) 尝试组合键：`${k1}_${k2}`
+        // let combinedKey = `${k1}_${k2}`;
+        // if (Object.prototype.hasOwnProperty.call(zmul, combinedKey)) {
+        //     return zmul[combinedKey];
+        // }
+
+        // combinedKey = `${k2}_${k1}`;
+        // if (Object.prototype.hasOwnProperty.call(zmul, combinedKey)) {
+        //     return zmul[combinedKey];
+        // }
+
+        return null;
+    } catch(e){
+        console.error(e, arguments);
+        
+        debugger;
+        throw e;
+    }
+}
+
 function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
     function anaRecursion(core, fakePool = {}) {
         return analyze(core, z, namePool, xPool, fakePool, zMulName);
@@ -24,6 +81,7 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
 
     for (let ei = 0; ei < core.length; ei++) {
         let e = core[ei];
+        let code = escodegen.generate(e);
         switch (e.type) {
             case "ExpressionStatement": {
                 let f = e.expression;
@@ -35,7 +93,14 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             case "_rz":
                                 try {
-                                    namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
+                                    // namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
+                                    const zMulValue = getZmulValue(z.mul, zMulName, f.arguments[3].value);
+                                    // if(!zMulValue){
+                                    //     debugger;
+                                    // } else {
+                                    //     debugger;
+                                    // }
+                                    namePool[f.arguments[1].name].v[f.arguments[2].value] = zMulValue;
                                 } catch (error) {
                                     console.error(error);
                                     const rest = [f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value];
@@ -66,7 +131,11 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                             case "_2z": {
                                 let item = f.arguments[7].value;//def:item
                                 let index = f.arguments[8].value;//def:index
-                                let data = z.mul[zMulName][f.arguments[1].value];
+                                // let data = z.mul[zMulName][f.arguments[1].value];
+                                var zMulValue = getZmulValue(z.mul, zMulName, f.arguments[1].value);;
+                                // if(!zMulValue) debugger;
+                                let data = zMulValue;
+                                
                                 let key = escodegen.generate(f.arguments[9]).slice(1, -1);//f.arguments[9].value;//def:""
                                 let obj = namePool[f.arguments[6].name];
                                 let gen = namePool[f.arguments[2].name];
@@ -123,7 +192,7 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 push(dec.id.name, {tag: "block", son: [], v: {}});
                                 break;
                             case "_o":
-                                var content = z[dec.init.arguments[0].value]
+                                var content = z[dec.init.arguments[0].value];
                                 push(dec.id.name, {
                                     tag: "__textNode__",
                                     textNode: true,
@@ -134,17 +203,19 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 }
                                 break;
                             case "_oz":
-                                var content = z.mul[zMulName][dec.init.arguments[1].value]
+                                var zMulValue = getZmulValue(z.mul, zMulName, dec.init.arguments[1].value);;
+                                // if(!zMulValue) debugger;
+                                var content = zMulValue;
                                 push(dec.id.name, {
                                     tag: "__textNode__",
                                     textNode: true,
                                     content
                                 });
-                                if(!content){
-                                    debugger
-                                } else {
-                                    // debugger;
-                                }
+                                // if(!content){
+                                //     debugger
+                                // } else {
+                                //     // debugger;
+                                // }
                                 break;
                             case "_m": {
                                 if (dec.init.arguments[2].elements.length > 0)
@@ -191,7 +262,9 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                             // console.info('v:', v)
                                             // console.info('name:', name)
                                             // console.info('z.mul[zMulName]:', z.mul[zMulName])
-                                            mv[name] = z.mul[zMulName][base + v];
+                                            var zMulValue = getZmulValue(z.mul, zMulName, base + v);;
+                                            // if(!zMulValue) debugger;
+                                            mv[name] = zMulValue;
                                             if (base == 0) base = v;
                                             // console.info('=========================')
                                         }
@@ -211,7 +284,13 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                         for (let f of e.declarations) {
                                             if (f.init.type == "LogicalExpression" && f.init.left.type == "CallExpression") {
                                                 if (f.init.left.callee.name == "_1") data = z[f.init.left.arguments[0].value];
-                                                else if (f.init.left.callee.name == "_1z") data = z.mul[zMulName][f.init.left.arguments[1].value];
+                                                // else if (f.init.left.callee.name == "_1z") data = z.mul[zMulName][f.init.left.arguments[1].value];
+                                                if (f.init.left.callee.name == "_1z") {
+                                                    data = z[f.init.left.arguments[0].value];
+                                                    var zMulValue = getZmulValue(z.mul, zMulName, f.init.left.arguments[1].value);;
+                                                    // if(!zMulValue) debugger;
+                                                    data = zMulValue;
+                                                }
                                             }
                                         }
                                     } else if (e.type == "ExpressionStatement") {
@@ -245,7 +324,6 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                     throw Error("Unknown init callee " + funName, "\n出现新类型了, wuWXml.js处理");
                                 } 
                                 console.log('funName:', funName, ' zMulName', zMulName);
-                                debugger;
                                 // let prefixList = ["gz$gwx_XC", "gz$gwx"];
                                 // if (funName.startsWith(prefixList[0])) {
                                 //     zMulName = funName.slice(prefixList[0].length + 1);
@@ -270,20 +348,25 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                 }
                 break;
             case "IfStatement":
+                
                 if (e.test.callee.name.startsWith("_o")) {
                     function parse_OFun(e) {
+                        let code = escodegen.generate(e);
                         if (e.test.callee.name == "_o") return z[e.test.arguments[0].value];
                         else if (e.test.callee.name == "_oz") {
-                            try{
-                                return z.mul[zMulName][e.test.arguments[1].value];
-                            }catch(e_){
-                                console.log("z.mul\n",z.mul)
-                                console.log("zMulName\n",zMulName)
-                                console.log("e.test.arguments\n",e?.test?.arguments)
-                                debugger;
-                                //TODO handle the exception
-                                throw new Error(e_);
-                            }
+                            const keySec = e.test.arguments[1].value;
+                            var zMulValue = getZmulValue(z.mul, zMulName, keySec);
+                            // var zMulValue = "";
+                            // try {
+                            //     if(z.mul[keySec]) zMulValue = z.mul[keySec][zMulName];
+                            //     if(z.mul[`${keySec}_1`]) zMulValue = z.mul[`${keySec}_1`][zMulName];
+                            //     if(!zMulValue) debugger;
+                            // } catch (error) {
+                            //     debugger;
+                            // }
+                            // if(!zMulValue) debugger;
+                            // else debugger;
+                            return zMulValue;
                         }
                         else throw Error("Unknown if statement test callee name:" + e.test.callee.name);
                     }
@@ -315,12 +398,19 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
 }
 
 function wxmlify(str, isText) {
-    if (typeof str == "undefined" || str === null) {
+    if (typeof str == "undefined" || str == null) {
         console.trace("str, isText", str, isText)
         return "Empty";//throw Error("Empty str in "+(isText?"text":"prop"));
     }
     if (isText) return str;//may have some bugs in some specific case(undocumented by tx)
-    else return str.replace(/"/g, '\\"');
+    else {
+        try {
+            return str.replace(/"/g, '\\"');
+        } catch (e) {
+            console.error(e);
+            return "Empty";
+        }
+    };
 }
 
 function elemToString(elem, dep, moreInfo = false) {
@@ -446,6 +536,7 @@ function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
         console.log("Decompile success!");
     } catch (e) {
         console.error("dir:", dir, " error: ", e);
+        debugger;
         // console.error("error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
         if (state[0] === null) wu.save(path.resolve(dir, name + ".ori.js"), code);
         else wu.save(path.resolve(dir, name + ".tem-" + state[0] + ".ori.js"), rDs[state[0]].toString());

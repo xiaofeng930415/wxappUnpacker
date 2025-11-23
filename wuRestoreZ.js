@@ -30,7 +30,7 @@ function catchZGroupNew(code, groupPreStr, cb) {
 		// console.log('\ncontent:' + content);
 		vm.run(content);
 		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)/)[1]] = z;
+		zArr[preStr.match(/function gz\$gwx\d?_XC_(\d*_\d+)/)[1]] = z;
 	}
 	console.log('======================');
 	cb({"mul": zArr});
@@ -59,20 +59,48 @@ function catchZGroupNewNew(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
+function catchZGroup4(code, groupPreStr, cb) {
+	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
+	let zArr = {};
+	for (let preStr of groupPreStr) {
+		let content = code.slice(code.indexOf(preStr)), z = [];
+		content = content.slice(content.indexOf("(function(z){var a=11;"));
+		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
+		let vm = new VM({sandbox: {z: z, debugInfo: []}});
+		// console.log('======================');
+		// console.log('preStr:' + preStr);
+		// console.log('\ncontent:' + content);
+		vm.run(content);
+		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
+		zArr[preStr.match(/function gz\$gwx_wx[a-z0-9]{16}_(\d+)\(/)[1]] = z;
+	}
+	console.log('======================');
+	cb({"mul": zArr});
+}
+
 function catchZ(code, cb) {
 	let zArr = {};
 	let _cb = ({mul}) => {
 		Object.assign(zArr, mul);
 	}
-	let groupTest = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*_\d+\)/g);
-	if (groupTest !== null) catchZGroup(code, groupTest, _cb);
+	let group1List = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\r?\n\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*_\d+\)/g);
+	if (group1List !== null) catchZGroup(code, group1List, _cb);
+	console.log("group1List:", group1List);
+	
 	// 补充函数类型
-	groupTest = code.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d{0,1}_XC_\d*_\d+\)/g);
-	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
-	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
-	// groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_\d+\)/g);
-	if (groupTest !== null) catchZGroupNewNew(code, groupTest, _cb);
-	console.log("groupTest:", groupTest);
+	let group2List = code.match(/function gz\$gwx\d?_XC_(\d*_\d+)\(\)\{\r?\n\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d?_XC_\d*_\d+\)/g);
+	if (group2List !== null) catchZGroupNew(code, group2List, _cb);
+	console.log("group2List:", group2List);
+
+	let group3List = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\r?\n\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
+	console.log("group3List:", group3List);
+	if (group3List !== null) catchZGroupNewNew(code, group3List, _cb);
+	console.log("group3List:", group3List);
+
+	// function gz$gwx_wx96619d0a66a66829_13(){
+	const group4List = code.match(/function gz\$gwx_wx[a-z0-9]{16}_\d+\(\)\s*\{\r?\n\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_\d+\)/g);
+	if (group4List !== null) catchZGroup4(code, group4List, _cb);
+	console.log("group5List:", group4List);
 
 	// 完善zArr的获取逻辑, 兼容同时包含模式
 	if(Object.keys(zArr).length){

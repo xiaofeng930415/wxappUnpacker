@@ -123,3 +123,5 @@ unp unpack -s <decrypt>.wxapkg -d <dist path>
 原因: 路径中不能包含空格,即使是做了处理,也仍会生成失败
 
 
+
+# 如果再遇到getZmulValue未取到值,优化排查wuRestoreZ.js => catchZ函数是否有疏漏
