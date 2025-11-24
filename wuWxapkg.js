@@ -119,7 +119,7 @@ function packDone(dir, cb, order) {
 
     }
 
-//This will be the only func running this time, so async is needless.
+    //This will be the only func running this time, so async is needless.
     if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
         //weapp
         dealThreeThings(dir);

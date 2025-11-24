@@ -83,7 +83,11 @@ function doConfig(configFile, cb) {
                 e.page[file].window.component = true;
             }
         if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
-            let matches = fs.readFileSync(path.resolve(dir, "app-service.js"), {encoding: 'utf8'}).match(/\_\_wxAppCode\_\_\['[^\.]+\.json[^;]+\;/g);
+            let code = fs.readFileSync(path.resolve(dir, "app-service.js"), {encoding: 'utf8'});
+            let matches = code.match(/\b__wxAppCode__\['[^\.]+\.json[^;]+\;/g);
+
+            // 修复插件json文件路径问题
+            matches = matches.map(item => item.replace(/plugin-private:\/\/wx[a-z0-9]+\//, '')); 
             if (matches) {
                 let attachInfo = {};
                 (new VM({
@@ -92,6 +96,19 @@ function doConfig(configFile, cb) {
                     }
                 })).run(matches.join(""));
                 for (let name in attachInfo) e.page[wu.changeExt(name, ".html")] = {window: attachInfo[name]};
+            }
+
+            // 插件的js全写在app-service.js中，这里只需要提取出js文件的内容, 直接写入即可
+            let jsPluginPatt = /__wxAppCurrentFile__\s*=\s*('|")plugin-private:\/\/wx\w{16}\/(.*?)\1;.*?define\(("|')\2\3,\s*function\(.*?\)\{([\s\S\n]*?)\}\);\s*require\(\3\2\3\);/g;
+            let jsMatches = code.matchAll(jsPluginPatt);
+            if (jsMatches) {
+                const {js_beautify} = require("js-beautify");
+                for (let match of jsMatches) {
+                    let fileName = match[2];
+                    let jsCode = match[4].replace(/\s*\t\s*/g, '').replace(/("|')use strict\1;?/g, '');
+                    // 直接在此处写入js
+                    wu.save(path.resolve(dir, fileName), js_beautify(jsCode)); // .replace(/("|')use strict\1;?\r?\n\s*/, ''));
+                }
             }
         }
         let delWeight = 8;

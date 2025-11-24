@@ -125,3 +125,11 @@ unp unpack -s <decrypt>.wxapkg -d <dist path>
 
 
 # 如果再遇到getZmulValue未取到值,优化排查wuRestoreZ.js => catchZ函数是否有疏漏
+
+
+/plugin-private:\/\/wx[a-z0-9]+\//Save file error: Error: ENOENT: no such file or directory, open 'E:\GitStoreE\xy_mp\__APP__\plugin-pri
+vate:\wx96619d0a66a66829\pages\evaluateList\evaluateList.wxss'
+Save file error: Error: ENOENT: no such file or directory, open 'E:\GitStoreE\xy_mp\__APP__\plugin-pri
+vate:\wx96619d0a66a66829\components\voucher\voucher.wxss'
+Save file error: Error: ENOENT: no such file or directory, open 'E:\GitStoreE\xy_mp\__APP__\plugin-pri
+vate:\wx96619d0a66a66829\pages\selectPage\selectPage.wxss'
