@@ -495,6 +495,12 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 console.log('saveDir: ' + saveDir);
                 for (let name in result) {
                     let pathFile = path.resolve(saveDir, wu.changeExt(name, ".wxss"));
+                    if(pathFile.match(/plugin-private/)){
+                        // 实现对插件的转换命名
+                        // E:\GitStoreE\xy_mp\__APP__\plugin-private:\wx96619d0a66a66829\pages\evaluateList\evaluateList.wxss
+                        // E:\GitStoreE\xy_mp\__APP__\pages\evaluateList\evaluateList.wxss
+                        pathFile = pathFile.replace(/plugin-private:\\wx[a-f0-9]+\\/i, '');
+                    }
                     wu.save(pathFile, transformCss(result[name]));
                 }
                 let delFiles = {};
@@ -510,4 +516,6 @@ function doWxss(dir, cb, mainDir, nowDir) {
 module.exports = {doWxss: doWxss};
 if (require.main === module) {
     wu.commandExecute(doWxss, "Restore wxss files.\n\n<dirs...>\n\n<dirs...> restore wxss file from a unpacked directory(Have page-frame.html (or app-wxss.js) and other html file).");
+    // const str = "E:\\GitStoreE\\xy_mp\\__APP__\\plugin-private:\\wx96619d0a66a66829\\components\\chooseDoctor\\index.wxss"
+    // console.log(str.replace(/plugin-private:\\wx[a-f0-9]+\\/i, ''));
 }
