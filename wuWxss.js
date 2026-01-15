@@ -345,6 +345,11 @@ function doWxss(dir, cb, mainDir, nowDir) {
     }
 
     wu.scanDirByExt(dir, ".html", files => {
+        if (fs.existsSync(path.resolve(dir, "game.js"))){
+            console.log("game.js found, skip");
+            return;
+        }
+
         let frameFile = "";
         if (fs.existsSync(path.resolve(dir, "page-frame.html")))
             frameFile = path.resolve(dir, "page-frame.html");
