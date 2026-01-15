@@ -163,7 +163,8 @@ function packDone(dir, cb, order) {
                             workDir = tempPath;
                         }
                         // if (fs.existsSync(path.resolve(workDir, "appservice.js"))) {
-                        if (fs.existsSync(path.resolve(workDir, "app-service.js"))) {
+                        const targetList = ["appservice.js", "app-service.js", "game.js"]; // 兼容小游戏
+                        if (targetList.some(target => fs.existsSync(path.resolve(workDir, target)))) {
                             console.log("sub package word dir: " + workDir);
                             mainDir = path.resolve(oldDir, mainDir);
                             console.log("real mainDir: " + mainDir);
