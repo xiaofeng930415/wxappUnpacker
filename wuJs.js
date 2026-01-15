@@ -35,6 +35,9 @@ function splitJs(name, cb, mainDir) {
                     needDelList[path.resolve(dir, name)] = -8;
                     wu.save(path.resolve(dir, name), jsBeautify(res));
                 },
+                // ReferenceError [Error]: $gwx is not defined
+                // $gwx('init', global);
+                $gwx() {},
                 // 补充
                 __g() {},
                 __vd_version_info__: {},
