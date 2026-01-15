@@ -307,7 +307,8 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                             default: {
                                 let funName = dec.init.callee.name;
 
-                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,1}_(XC_){0,1}))[\d|_]+/;
+                                // let zMulNamePatt = /(?<=(gz\$gwx\d{0,1}_(XC_){0,1}))[\d|_]+/;
+                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,2}_(XC_)?))[\d|_]+/;
                                 zMulName = funName.match(zMulNamePatt)?.[0];
                                 if(!zMulName) {
                                     // 'gz$gwx_wxfa43a4a7041a84de_XC_12_1' 提取12
