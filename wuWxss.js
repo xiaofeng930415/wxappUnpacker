@@ -174,7 +174,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
 
         for (let name of files) {
             if (name != frameFile) {
-                wu.get(name, code => {
+                wu.get(name, codeBuf => {
+                    let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
                     code = code.replace(/display:-webkit-box;display:-webkit-flex;/gm, '');
                     code = code.slice(0, code.indexOf("\n"));
                     if (code.indexOf("setCssToHead(") > -1) {
@@ -185,7 +186,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
                         }
                         runList[lastName] = code.slice(code.indexOf("setCssToHead("));
                     }
-                });
+                }, { encoding: null });
             }
         }
     }
@@ -265,7 +266,8 @@ function doWxss(dir, cb, mainDir, nowDir) {
             frameFile = path.resolve(dir, "pageframe.js");
 		else throw Error("page-frame-like file is not found in the package by auto.");
 
-        wu.get(frameFile, code => {
+        wu.get(frameFile, codeBuf => {
+            let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
             code = code.replace(/display:-webkit-box;display:-webkit-flex;/gm, '');
             let scriptCode = code;
             write(scriptCode, 'scriptCode.js');
@@ -355,7 +357,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
                     }
                 }
 
-            //remove setCssToHead function
+            // remove setCssToHead side-effects in mainCode
             mainCode = mainCode.replace('var setCssToHead = function', 'var setCssToHead2 = function');
 
             code = code.slice(code.lastIndexOf('var setCssToHead = function(file, _xcInvalid'));
@@ -372,7 +374,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
             pureData = vm.run(code + "\n_C");
             write(JSON.stringify(pureData), 'pureData.txt');
 
-			console.log("Guess wxss(first turn)...");
+            console.log("Guess wxss(first turn)...");
             // write(scriptCode, 'scriptCode4.js');
             preRun(dir, frameFile, mainCode, files, () => {
                 console.info("dir, frameFile, mainCode, files")
@@ -412,7 +414,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 // cb({})
 				cb(delFiles); // mark 删除文件
 			});
-		});
+		}, { encoding: null });
 	});
 }
 
