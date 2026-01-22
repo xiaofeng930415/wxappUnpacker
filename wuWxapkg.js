@@ -21,8 +21,13 @@ function header(buf) {
     let lastMark = buf.readUInt8(13);
     console.log("  lastMark: 0x%s", lastMark.toString(16));
 
+    console.log("  buf.length: ", buf.length);
     // 添加数据有效性检查
-    if (infoListLength <= 0 || infoListLength > buf.length || dataLength <= 0 || dataLength > buf.length) {
+    // if (infoListLength <= 0 || infoListLength > buf.length || dataLength <= 0 || dataLength > buf.length) {
+    //     throw Error("文件格式错误：数据长度无效");
+    // }
+    // 这个格式检查有问题，已调整
+    if (infoListLength <= 0 || dataLength <= 0 ) {
         throw Error("文件格式错误：数据长度无效");
     }
 
