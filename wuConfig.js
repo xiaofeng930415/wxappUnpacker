@@ -32,6 +32,12 @@ function doConfig(configFile, cb) {
         k.splice(k.indexOf(wu.changeExt(e.entryPagePath)), 1);
         k.unshift(wu.changeExt(e.entryPagePath));
         let app = {pages: k, window: e.global && e.global.window, tabBar: e.tabBar, networkTimeout: e.networkTimeout};
+        // 兼容附加的全局配置项，确保都写入到 app.json 根级
+        if (e.useExtendedLib) app.useExtendedLib = e.useExtendedLib;
+        if (e.plugins) app.plugins = e.plugins;
+        if (e.embeddedAppIdList) app.embeddedAppIdList = e.embeddedAppIdList;
+        if (e.renderer) app.renderer = e.renderer;
+        if (e.componentFramework) app.componentFramework = e.componentFramework;
         if (e.subPackages) {
             let subPackages = [];
             let pages = app.pages;
@@ -91,7 +97,17 @@ function doConfig(configFile, cb) {
                         __wxAppCode__: attachInfo
                     }
                 })).run(matches.join(""));
-                for (let name in attachInfo) e.page[wu.changeExt(name, ".html")] = {window: attachInfo[name]};
+                for (let name in attachInfo) e.page[wu.changeExt(name, ".html")] = { window: attachInfo[name] };
+                // 若 app.json 在附加信息中声明了 usingComponents 等，也合并到 app 根级
+                if (attachInfo["app.json"]) {
+                    let appAttach = attachInfo["app.json"];
+                    if (appAttach.usingComponents) app.usingComponents = appAttach.usingComponents;
+                    if (appAttach.useExtendedLib && !app.useExtendedLib) app.useExtendedLib = appAttach.useExtendedLib;
+                    if (appAttach.plugins && !app.plugins) app.plugins = appAttach.plugins;
+                    if (appAttach.embeddedAppIdList && !app.embeddedAppIdList) app.embeddedAppIdList = appAttach.embeddedAppIdList;
+                    if (appAttach.renderer && !app.renderer) app.renderer = appAttach.renderer;
+                    if (appAttach.componentFramework && !app.componentFramework) app.componentFramework = appAttach.componentFramework;
+                }
             }
         }
         let delWeight = 8;
