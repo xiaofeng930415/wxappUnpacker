@@ -228,7 +228,7 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                             default: {
                                 let funName = dec.init.callee.name;
 
-                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,1}_(XC_){0,1}))[\d|_]+/;
+                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,2}_(XC_){0,1}))[\d|_]+/;
                                 zMulName = funName.match(zMulNamePatt)?.[0];
                                 if(!zMulName) {
                                     // 'gz$gwx_wxfa43a4a7041a84de_XC_12_1' 提取12
@@ -446,6 +446,10 @@ function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
         console.log("Decompile success!");
     } catch (e) {
         console.error("dir:", dir, " error: ", e);
+        if (e.message && e.message.includes("Unknown init callee")) {
+            const logContent = `[${new Date().toISOString()}] Dir: ${dir}, Name: ${name}\nError: ${e.stack}\n\n`;
+            fs.appendFileSync(path.resolve(dir, '..', 'unknown_callee.log'), logContent);
+        }
         // console.error("error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
         if (state[0] === null) wu.save(path.resolve(dir, name + ".ori.js"), code);
         else wu.save(path.resolve(dir, name + ".tem-" + state[0] + ".ori.js"), rDs[state[0]].toString());
@@ -729,7 +733,7 @@ function doFrame(name, cb, order, mainDir) {
     }, { encoding: null });
 }
 
-module.exports = {doFrame: doFrame};
+module.exports = {doFrame: doFrame, tryWxml: tryWxml};
 if (require.main === module) {
     wu.commandExecute(doFrame, "Restore wxml files.\n\n<files...>\n\n<files...> restore wxml file from page-frame.html or app-wxss.js.");
 }
