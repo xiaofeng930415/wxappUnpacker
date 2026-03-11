@@ -59,6 +59,22 @@ function catchZGroupNewNew(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
+function catchZGroupWx(code, groupPreStr, cb) {
+	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
+	let zArr = {};
+	for (let preStr of groupPreStr) {
+		let content = code.slice(code.indexOf(preStr)), z = [];
+		content = content.slice(content.indexOf("(function(z){var a=11;"));
+		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
+		let vm = new VM({sandbox: {z: z, debugInfo: []}});
+		vm.run(content);
+		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
+		zArr[preStr.match(/function gz\$gwx_wx[a-z0-9]+_(\d+)/)[1]] = z;
+	}
+	console.log('======================');
+	cb({"mul": zArr});
+}
+
 function catchZ(code, cb) {
 	let zArr = {};
 	let _cb = ({mul}) => {
@@ -70,8 +86,9 @@ function catchZ(code, cb) {
 	groupTest = code.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d{0,1}_XC_\d*_\d+\)/g);
 	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
 	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
-	// groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_\d+\)/g);
 	if (groupTest !== null) catchZGroupNewNew(code, groupTest, _cb);
+	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g);
+	if (groupTest !== null) catchZGroupWx(code, groupTest, _cb);
 	console.log("groupTest:", groupTest);
 
 	// 完善zArr的获取逻辑, 兼容同时包含模式
