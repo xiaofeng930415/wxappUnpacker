@@ -88,8 +88,12 @@ function doConfig(configFile, cb) {
                 if (!e.page[file].window) e.page[file].window = {};
                 e.page[file].window.component = true;
             }
-        if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
-            let matches = fs.readFileSync(path.resolve(dir, "app-service.js"), {encoding: 'utf8'}).match(/\_\_wxAppCode\_\_\['[^\.]+\.json[^;]+\;/g);
+        let appServicePath = path.resolve(dir, "app-service.js");
+        if (!fs.existsSync(appServicePath)) {
+            appServicePath = path.resolve(dir, "appservice.js");
+        }
+        if (fs.existsSync(appServicePath)) {
+            let matches = fs.readFileSync(appServicePath, {encoding: 'utf8'}).match(/\_\_wxAppCode\_\_\['[^\.]+\.json[^;]+\;/g);
             if (matches) {
                 let attachInfo = {};
                 (new VM({

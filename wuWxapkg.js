@@ -101,7 +101,7 @@ function packDone(dir, cb, order) {
     }
 
     function dealThreeThings(dir, mainDir, nowDir) {
-        console.log("Split app-service.js and make up configs & wxss & wxml & wxs...");
+        console.log("Split app-service.js (or appservice.js) and make up configs & wxss & wxml & wxs...");
 
         //deal config
         if (fs.existsSync(path.resolve(dir, "app-config.json"))) {
@@ -112,6 +112,9 @@ function packDone(dir, cb, order) {
         if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
             wuJs.splitJs(path.resolve(dir, "app-service.js"), doBack, mainDir);
             console.log('deal js ok');
+        } else if (fs.existsSync(path.resolve(dir, "appservice.js"))) {
+            wuJs.splitJs(path.resolve(dir, "appservice.js"), doBack, mainDir);
+            console.log('deal js ok');
         }
         if (fs.existsSync(path.resolve(dir, "workers.js"))) {
             wuJs.splitJs(path.resolve(dir, "workers.js"), doBack, mainDir);
@@ -121,19 +124,57 @@ function packDone(dir, cb, order) {
         if (mainDir) {
             if (fs.existsSync(path.resolve(dir, "page-frame.js"))) {
                 wuMl.doFrame(path.resolve(dir, "page-frame.js"), doBack, order, mainDir);
-                console.log('deal sub html ok');
+                if (!needDelete[path.resolve(dir, "page-frame.js")]) {
+                    needDelete[path.resolve(dir, "page-frame.js")] = 8;
+                }
+                console.log('deal sub page-frame.js ok');
+            } else if (fs.existsSync(path.resolve(dir, "page-frame.html"))) {
+                wuMl.doFrame(path.resolve(dir, "page-frame.html"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "page-frame.html")]) {
+                    needDelete[path.resolve(dir, "page-frame.html")] = 8;
+                }
+                console.log('deal sub page-frame.html ok');
+            } else if (fs.existsSync(path.resolve(dir, "pageframe.js"))) {
+                wuMl.doFrame(path.resolve(dir, "pageframe.js"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "pageframe.js")]) {
+                    needDelete[path.resolve(dir, "pageframe.js")] = 8;
+                }
+                console.log('deal sub pageframe.js ok');
+            } else if (fs.existsSync(path.resolve(dir, "app-wxss.js"))) {
+                wuMl.doFrame(path.resolve(dir, "app-wxss.js"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "app-wxss.js")]) {
+                    needDelete[path.resolve(dir, "app-wxss.js")] = 8;
+                }
+                console.log('deal sub app-wxss.js ok');
+            } else {
+                throw Error("page-frame-like file is not found in the package by auto.");
             }
             wuSs.doWxss(dir, doBack, mainDir, nowDir);
         } else {
             if (fs.existsSync(path.resolve(dir, "page-frame.html"))) {
                 wuMl.doFrame(path.resolve(dir, "page-frame.html"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "page-frame.html")]) {
+                    needDelete[path.resolve(dir, "page-frame.html")] = 8;
+                }
                 console.log('deal html ok');
             } else if (fs.existsSync(path.resolve(dir, "app-wxss.js"))) {
                 wuMl.doFrame(path.resolve(dir, "app-wxss.js"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "app-wxss.js")]) {
+                    needDelete[path.resolve(dir, "app-wxss.js")] = 8;
+                }
+                console.log('deal wxss.js ok');
+            } else if (fs.existsSync(path.resolve(dir, "page-frame.js"))) {
+                wuMl.doFrame(path.resolve(dir, "page-frame.js"), doBack, order, mainDir);
                 if (!needDelete[path.resolve(dir, "page-frame.js")]) {
                     needDelete[path.resolve(dir, "page-frame.js")] = 8;
                 }
-                console.log('deal wxss.js ok');
+                console.log('deal page-frame.js ok');
+            } else if (fs.existsSync(path.resolve(dir, "pageframe.js"))) {
+                wuMl.doFrame(path.resolve(dir, "pageframe.js"), doBack, order, mainDir);
+                if (!needDelete[path.resolve(dir, "pageframe.js")]) {
+                    needDelete[path.resolve(dir, "pageframe.js")] = 8;
+                }
+                console.log('deal pageframe.js ok');
             } else {
                 throw Error("page-frame-like file is not found in the package by auto.");
             }
@@ -146,7 +187,7 @@ function packDone(dir, cb, order) {
     }
 
 //This will be the only func running this time, so async is needless.
-    if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
+    if (fs.existsSync(path.resolve(dir, "app-service.js")) || fs.existsSync(path.resolve(dir, "appservice.js"))) {
         //weapp
         dealThreeThings(dir);
     } else if (fs.existsSync(path.resolve(dir, "game.js"))) {
@@ -188,8 +229,7 @@ function packDone(dir, cb, order) {
                         if(!stats.isFile()){
                             workDir = tempPath;
                         }
-                        // if (fs.existsSync(path.resolve(workDir, "appservice.js"))) {
-                        if (fs.existsSync(path.resolve(workDir, "app-service.js"))) {
+                        if (fs.existsSync(path.resolve(workDir, "app-service.js")) || fs.existsSync(path.resolve(workDir, "appservice.js"))) {
                             console.log("sub package word dir: " + workDir);
                             mainDir = path.resolve(oldDir, mainDir);
                             console.log("real mainDir: " + mainDir);

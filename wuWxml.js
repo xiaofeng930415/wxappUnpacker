@@ -314,16 +314,22 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
     }
 }
 
-function wxmlify(str, isText) {
+function wxmlify(str, isText, { elem, key, filePath } = {}) {
     if (typeof str == "undefined" || str === null) {
-        console.trace("str, isText", str, isText)
+        if (isText) return "";
+        // if(dir) {
+        const { son, ..._elem } = elem || {};
+        const logContent = `[${new Date().toISOString()}] wxmlify error: str is ${str}, isText: ${isText}, \n elem: ${JSON.stringify(_elem)}, key: ${key}, filePath: ${filePath}\n`;
+        // fs.appendFileSync(path.resolve(dir, '..', 'wxml_error.log'), logContent);
+        fs.appendFileSync('/Users/guifengxiao/gitstore/unpacker_workspace/wxappUnpacker/wxml_error.log', logContent);
+        // }
         return "Empty";//throw Error("Empty str in "+(isText?"text":"prop"));
     }
     if (isText) return str;//may have some bugs in some specific case(undocumented by tx)
     else return str.replace(/"/g, '\\"');
 }
 
-function elemToString(elem, dep, moreInfo = false) {
+function elemToString(elem, dep, moreInfo = false, dir, filePath) {
     const longerList = [];//put tag name which can't be <x /> style.
     const indent = ' '.repeat(4);
 
@@ -336,7 +342,7 @@ function elemToString(elem, dep, moreInfo = false) {
     }
 
     function elemRecursion(elem, dep) {
-        return elemToString(elem, dep, moreInfo);
+        return elemToString(elem, dep, moreInfo, dir, filePath);
     }
 
     function trimMerge(rets) {
@@ -359,9 +365,9 @@ function elemToString(elem, dep, moreInfo = false) {
     if (isTextTag(elem)) {
         //In comment, you can use typify text node, which beautify its code, but may destroy ui.
         //So, we use a "hack" way to solve this problem by letting typify program stop when face textNode
-        let str = new String(wxmlify(elem.content, true));
+        let str = new String(wxmlify(elem.content, true, { filePath }));
         str.textNode = 1;
-        return wxmlify(str, true);//indent.repeat(dep)+wxmlify(elem.content.trim(),true)+"\n";
+        return wxmlify(str, true, { filePath });//indent.repeat(dep)+wxmlify(elem.content.trim(),true)+"\n";
     }
     if (elem.tag == "block" && !moreInfo) {
         if (elem.son.length == 1 && !isTextTag(elem.son[0])) {
@@ -381,7 +387,7 @@ function elemToString(elem, dep, moreInfo = false) {
         }
     }
     let ret = indent.repeat(dep) + "<" + elem.tag;
-    for (let v in elem.v) ret += " " + v + (elem.v[v] !== null ? "=\"" + wxmlify(elem.v[v]) + "\"" : "");
+    for (let v in elem.v) ret += " " + v + (elem.v[v] !== null ? "=\"" + wxmlify(elem.v[v], isTextTag(elem), { elem, key: v, filePath }) + "\"" : "");
     if (elem.son.length == 0) {
         if (longerList.includes(elem.tag)) return ret + " />\n";
         else return ret + "></" + elem.tag + ">\n";
@@ -405,7 +411,8 @@ function doWxml(state, dir, name, code, z, xPool, rDs, wxsList, moreInfo) {
     //// console.log('============================');
     // //// console.log("z: after", z)
     let ans = [];
-    for (let elem of r.son) ans.push(elemToString(elem, 0, moreInfo));
+    const filePath = path.resolve(dir, name);
+    for (let elem of r.son) ans.push(elemToString(elem, 0, moreInfo, dir, filePath));
     //// console.log('============================');
     //// console.log("r.son", r.son);
     //// console.log('============================');
@@ -427,10 +434,11 @@ function doWxml(state, dir, name, code, z, xPool, rDs, wxsList, moreInfo) {
         // //// console.log("code: ", code)
         let r = {tag: "template", v: {name: v}, son: []};
         analyze(esprima.parseScript(code).body, z, {[rname]: r}, xPool, {[rname]: r});
-        result.unshift(elemToString(r, 0, moreInfo));
+        result.unshift(elemToString(r, 0, moreInfo, dir, filePath));
     }
     // console.log('state[0]', state[0], ' rDs', rDs)
-    name = path.resolve(dir, name);
+    // name = path.resolve(dir, name); // Moved up as filePath
+    name = filePath;
     if (wxsList[name]) result.push(wxsList[name]);
     //// console.log('============================');
     // //// console.log('result.join(""): ', result.join(""));
@@ -450,6 +458,8 @@ function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
             const logContent = `[${new Date().toISOString()}] Dir: ${dir}, Name: ${name}\nError: ${e.stack}\n\n`;
             fs.appendFileSync(path.resolve(dir, '..', 'unknown_callee.log'), logContent);
         }
+        const logContent = `[${new Date().toISOString()}] Dir: ${dir}, Name: ${name}\nError: ${e.stack}\n\n`;
+        fs.appendFileSync(path.resolve(dir, '..', 'unknown_callee.log'), logContent);
         // console.error("error on " + name + "(" + (state[0] === null ? "Main" : "Template-" + state[0]) + ")\nerr: ", e);
         if (state[0] === null) wu.save(path.resolve(dir, name + ".ori.js"), code);
         else wu.save(path.resolve(dir, name + ".tem-" + state[0] + ".ori.js"), rDs[state[0]].toString());
