@@ -159,7 +159,11 @@ function doWxss(dir, cb, mainDir, nowDir) {
 
         if(flag){
             for (let name in wxAppCode) {
-                handle.cssFile = path.resolve(saveDir, name);
+                let normalizedName = name;
+                if (normalizedName.startsWith("plugin-private://")) {
+                    normalizedName = normalizedName.replace(/^plugin-private:\/\/[^\/]+\//, "");
+                }
+                handle.cssFile = path.resolve(saveDir, normalizedName);
                 if (name.endsWith(".wxss")) {
                     wxAppCode[name]();
                 }
