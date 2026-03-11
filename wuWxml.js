@@ -130,7 +130,13 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                     content
                                 });
                                 if(!content){
-                                    debugger
+                                    console.error('Error: content is undefined in _o');
+                                    console.error('dec.id.name:', dec.id.name);
+                                    console.error('zMulName:', zMulName);
+                                    console.error('dec.init.arguments[0].value:', dec.init.arguments[0].value);
+                                    if (z.mul) {
+                                         console.error('Object.keys(z.mul):', Object.keys(z.mul));
+                                    }
                                 }
                                 break;
                             case "_oz":
@@ -141,7 +147,13 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                     content
                                 });
                                 if(!content){
-                                    debugger
+                                    console.error('Error: content is undefined in _oz');
+                                    console.error('dec.id.name:', dec.id.name);
+                                    console.error('zMulName:', zMulName);
+                                    console.error('dec.init.arguments[1].value:', dec.init.arguments[1].value);
+                                    if (z.mul) {
+                                         console.error('Object.keys(z.mul):', Object.keys(z.mul));
+                                    }
                                 } else {
                                     // debugger;
                                 }
@@ -227,33 +239,29 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             default: {
                                 let funName = dec.init.callee.name;
+                                zMulName = null;
+                                
+                                // 匹配 gz$gwx_wx..._XC_12_1 格式，提取 12
+                                if (!zMulName && /^gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1$/.test(funName)) {
+                                    zMulName = funName.match(/^gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1$/)[1];
+                                }
+                                // 匹配 gz$gwx_wx..._12 格式，提取 12
+                                if (!zMulName && /^gz\$gwx_wx[a-z0-9]+_(\d+)$/.test(funName)) {
+                                    zMulName = funName.match(/^gz\$gwx_wx[a-z0-9]+_(\d+)$/)[1];
+                                }
+                                // 匹配 gz$gwx_XC_1_1 格式，提取 1_1
+                                if (!zMulName && /^gz\$gwx\d{0,1}_XC_(\d+_\d+)$/.test(funName)) {
+                                    zMulName = funName.match(/^gz\$gwx\d{0,1}_XC_(\d+_\d+)$/)[1];
+                                }
+                                // 匹配 gz$gwx_1 格式，提取 1
+                                if (!zMulName && /^gz\$gwx\d*_(\d+)$/.test(funName)) {
+                                    zMulName = funName.match(/^gz\$gwx\d*_(\d+)$/)[1];
+                                }
 
-                                let zMulNamePatt = /(?<=(gz\$gwx\d{0,2}_(XC_){0,1}))[\d|_]+/;
-                                zMulName = funName.match(zMulNamePatt)?.[0];
-                                if(!zMulName) {
-                                    // 'gz$gwx_wxfa43a4a7041a84de_XC_12_1' 提取12
-                                    // 'gz$gwx_wxfa43a4a7041a84de_1' 提取1
-                                    // zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(XC_)?(\d+)(_1)?/;
-                                    zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(XC_|)(\d+)(_1)?/;
-                                    // zMulNamePatt = /gz\$gwx_wx[a-z0-9]{16}_(\d+)/;
-                                    zMulName = funName.match(zMulNamePatt)?.[2];
-                                    // if(!zMulName){
-
-                                    // }
-                                } 
                                 if(!zMulName) {
                                     throw Error("Unknown init callee " + funName, "\n出现新类型了, wuWXml.js处理");
-                                } 
-                                console.log('funName:', funName, ' zMulName', zMulName);
-                                debugger;
-                                // let prefixList = ["gz$gwx_XC", "gz$gwx"];
-                                // if (funName.startsWith(prefixList[0])) {
-                                //     zMulName = funName.slice(prefixList[0].length + 1);
-                                //     console.log('funName:', funName, ' zMulName', zMulName)
-                                // } else if (funName.startsWith(prefixList[1])) {
-                                //     zMulName = funName.slice(prefixList[1].length);
-                                //     console.log('funName:', funName, ' zMulName', zMulName)
-                                // } else throw Error("Unknown init callee " + funName);
+                                }
+                                // console.log('funName:', funName, ' zMulName', zMulName);
                             }
                         }
                     } else if (dec.init.type == "FunctionExpression") {
