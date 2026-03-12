@@ -1,0 +1,11 @@
+# Tasks
+- [ ] Task 1: Modify `wxmlify` to support logging
+  - [ ] Update `wxmlify` signature to accept `context`.
+  - [ ] Implement logging logic to `wxml_undefined_error.log` using `fs.appendFileSync`.
+- [ ] Task 2: Update `elemToString` to propagate context
+  - [ ] Update `elemToString` signature to accept `context`.
+  - [ ] Pass `context` to `wxmlify` calls.
+  - [ ] Ensure `elemRecursion` uses the `context`.
+- [ ] Task 3: Update `doWxml` to initiate context
+  - [ ] Create `context` object `{ dir, name }` in `doWxml`.
+  - [ ] Pass `context` to `elemToString` calls.

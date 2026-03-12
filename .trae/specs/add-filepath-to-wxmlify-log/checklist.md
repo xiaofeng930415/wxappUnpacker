@@ -1,0 +1,6 @@
+- [x] `wxmlify` function signature accepts `filePath` in options.
+- [x] `elemToString` function signature accepts `filePath`.
+- [x] `doWxml` passes `path.resolve(dir, name)` (or relevant path) to `elemToString`.
+- [x] `elemToString` passes `filePath` to `wxmlify`.
+- [x] `elemToString` passes `filePath` to recursive calls of `elemToString`.
+- [x] Error logs in `wxmlify` contain the file path.

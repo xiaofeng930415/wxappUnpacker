@@ -76,6 +76,74 @@ function saveFile(dir, buf, list) {
         wu.save(path.resolve(dir, (info.name.startsWith("/") ? "." : "") + info.name), buf.slice(info.off, info.off + info.size));
 }
 
+function createCleanupScheduler(dir, order, doneCb) {
+    let cleaned = false;
+    let fallbackListener = null;
+    const optionState = {
+        o: order.includes("o"),
+        d: order.includes("d")
+    };
+
+    function logCleanup(stage, extra = {}) {
+        const payload = Object.assign({
+            stage,
+            dir,
+            options: optionState
+        }, extra);
+        console.log("[cleanup] " + JSON.stringify(payload));
+    }
+
+    function getSkipReason() {
+        if (optionState.d) return "skip_by_option_d";
+        if (optionState.o) return "skip_by_option_o";
+        return "";
+    }
+
+    function trigger(source) {
+        if (cleaned) {
+            logCleanup("skip", { source, reason: "already_handled" });
+            return;
+        }
+        if (fallbackListener) {
+            process.removeListener("beforeExit", fallbackListener);
+            fallbackListener = null;
+        }
+        cleaned = true;
+        const skipReason = getSkipReason();
+        if (skipReason) {
+            logCleanup("skip", { source, reason: skipReason });
+            doneCb?.();
+            return;
+        }
+        logCleanup("triggered", { source });
+        try {
+            const result = del.doDel(dir);
+            logCleanup("finished", {
+                source,
+                matchedCount: result.matchedCount,
+                deletedCount: result.deletedCount
+            });
+        } catch (err) {
+            logCleanup("failed", {
+                source,
+                reason: err?.message || String(err)
+            });
+            throw err;
+        } finally {
+            doneCb?.();
+        }
+    }
+
+    return {
+        trigger: trigger,
+        scheduleFallback: function () {
+            if (fallbackListener) return;
+            fallbackListener = () => trigger("fallback");
+            process.once("beforeExit", fallbackListener);
+        }
+    };
+}
+
 function packDone(dir, cb, order) {
     console.log("Unpack done.");
     let weappEvent = new wu.CntEvent, needDelete = {};
@@ -122,6 +190,9 @@ function packDone(dir, cb, order) {
         if (fs.existsSync(path.resolve(dir, "app-config.json"))) {
             wuCfg.doConfig(path.resolve(dir, "app-config.json"), doBack);
             console.log('deal config ok');
+        } else if (fs.existsSync(path.resolve(dir, "plugin.json"))) {
+            wuCfg.doPluginConfig(path.resolve(dir, "plugin.json"));
+            console.log('deal plugin config ok');
         }
         //deal js
         if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
@@ -233,19 +304,16 @@ function doFile(name, cb, order) {
 
     console.log("Unpack file " + name + "...");
     let dir = path.resolve(name, "..", path.basename(name, ".wxapkg"));
-
-    const _cb = () => {
-        // 删除所有冗余文件
-        del.doDel(dir);
-        cb?.(arguments);
-    }
+    const cleanupScheduler = createCleanupScheduler(dir, order, cb);
+    const _cb = () => cleanupScheduler.trigger("main");
 
     wu.get(name, buf => {
         let [infoListLength, dataLength] = header(buf.slice(0, 14));
         if (order.includes("o")) wu.addIO(console.log.bind(console), "Unpack done.");
         else wu.addIO(packDone, dir, _cb, order);
+        cleanupScheduler.scheduleFallback();
         saveFile(dir, buf, genList(buf.slice(14, infoListLength + 14)));
-    }, {});
+    }, { encoding: null });
 }
 
 module.exports = {doFile: doFile};

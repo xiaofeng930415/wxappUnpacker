@@ -1,0 +1,6 @@
+- [ ] `wxmlify()` 在 `str` 为 `undefined/null` 时追加写入独立日志文件
+- [ ] 日志记录包含元素 `tag`、属性名（若适用）与元素摘要等关键字段
+- [ ] `isText` 未传入时按 `false` 处理且日志标记 `isTextProvided`
+- [ ] 日志写入失败不会中断 WXML 还原流程
+- [ ] `elemToString()` 属性序列化处实际传入 `ele` 与 `attrName`
+- [ ] 手工验证：构造最小元素树可复现并生成 `wxmlify_undefined.log`

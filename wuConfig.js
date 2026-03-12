@@ -185,7 +185,72 @@ function doConfig(configFile, cb) {
     });
 }
 
-module.exports = {doConfig: doConfig};
+function doPluginConfig(configFile, cb) {
+    let dir = path.dirname(configFile);
+    wu.get(configFile, content => {
+        let e = JSON.parse(content);
+        let plugin = {};
+        if (e.publicComponents) plugin.publicComponents = e.publicComponents;
+        if (e.pages) plugin.pages = e.pages;
+        if (e.main) plugin.main = e.main;
+
+        // Normalize pages paths
+        if (plugin.pages) {
+            for (let key in plugin.pages) {
+                plugin.pages[key] = plugin.pages[key].replace(/^__plugin__\/wx\w+\//, "");
+            }
+        }
+
+        // Save plugin.json
+        wu.save(path.resolve(dir, 'plugin.json'), JSON.stringify(plugin, null, 4));
+
+        // Process individual page configs from plugin.json
+        if (e.page) {
+            for (let pagePath in e.page) {
+                let windowConfig = e.page[pagePath].window || {};
+                let cleanPath = pagePath.replace(/^__plugin__\/wx\w+\//, "");
+                let fileName = path.resolve(dir, wu.changeExt(cleanPath, ".json"));
+                wu.save(fileName, JSON.stringify(windowConfig, null, 4));
+            }
+        }
+
+        // Extract component configs from appservice.js
+        let appServicePath = path.resolve(dir, "app-service.js");
+        if (!fs.existsSync(appServicePath)) {
+            appServicePath = path.resolve(dir, "appservice.js");
+        }
+        if (fs.existsSync(appServicePath)) {
+            let content = fs.readFileSync(appServicePath, {encoding: 'utf8'});
+            let matches = content.match(/\_\_wxAppCode\_\_\['[^\.]+\.json[^;]+\;/g);
+            if (matches) {
+                let attachInfo = {};
+                (new VM({
+                    sandbox: {
+                        __wxAppCode__: attachInfo
+                    }
+                })).run(matches.join(""));
+
+                for (let name in attachInfo) {
+                    let cleanPath = name;
+                    if (cleanPath.startsWith("__plugin__/")) {
+                        cleanPath = cleanPath.replace(/^__plugin__\/wx\w+\//, "");
+                    } else if (cleanPath.startsWith("plugin-private://")) {
+                        cleanPath = cleanPath.replace(/^plugin-private:\/\/[^\/]+\//, "");
+                    }
+                    let fileName = path.resolve(dir, cleanPath);
+                    if (attachInfo[name] && attachInfo[name].__warning__) {
+                        delete attachInfo[name].__warning__;
+                    }
+                    wu.save(fileName, JSON.stringify(attachInfo[name], null, 4));
+                }
+            }
+        }
+
+        typeof cb === 'function' && cb({[configFile]: 8});
+    });
+}
+
+module.exports = {doConfig: doConfig, doPluginConfig: doPluginConfig};
 if (require.main === module) {
     wu.commandExecute(doConfig, "Split and make up weapp app-config.json file.\n\n<files...>\n\n<files...> app-config.json files to split and make up.");
 }

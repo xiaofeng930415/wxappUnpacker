@@ -19,32 +19,51 @@ function splitJs(name, cb, mainDir) {
         let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
         debugger;
         let needDelList = {};
+        const vmDefine = function (name, func) {
+            let code = func.toString();
+            code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
+            let bcode = code;
+            if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) code = code.slice(13);
+            else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) code = code.slice(25, -5);
+            let res = jsBeautify(code);
+            if (typeof res == "undefined") {
+                console.log("Fail to delete 'use strict' in \"" + name + "\".");
+                res = jsBeautify(bcode);
+            }
+            console.log(dir, name);
+            debugger;
+            needDelList[path.resolve(dir, name)] = -8;
+            wu.save(path.resolve(dir, name), jsBeautify(res));
+        };
+        const vmRequire = function () {
+        };
         let vm = new VM({
             sandbox: {
-                require() {
-                },
-                define(name, func) {
-                    let code = func.toString();
-                    code = code.slice(code.indexOf("{") + 1, code.lastIndexOf("}") - 1).trim();
-                    let bcode = code;
-                    if (code.startsWith('"use strict";') || code.startsWith("'use strict';")) code = code.slice(13);
-                    else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) code = code.slice(25, -5);
-                    let res = jsBeautify(code);
-                    if (typeof res == "undefined") {
-                        console.log("Fail to delete 'use strict' in \"" + name + "\".");
-                        res = jsBeautify(bcode);
-                    }
-                    console.log(dir, name);
-                    debugger;
-                    needDelList[path.resolve(dir, name)] = -8;
-                    wu.save(path.resolve(dir, name), jsBeautify(res));
-                },
-                // 补充
+                require: vmRequire,
+                define: vmDefine,
                 __g() {},
                 __vd_version_info__: {},
                 __wxAppCode__: {},
-                // 补充
-                definePlugin() {
+                definePlugin(name, factory) {
+                    const module = { exports: {} };
+                    const exports = module.exports;
+                    const mockGlobal = {
+                        __wxAppCode__: {},
+                        __wxCodeSpace__: {},
+                        publishDomainComponents: function() {}
+                    };
+                    const mockWx = {};
+                    const mockApp = function() {};
+                    const mockPage = function() {};
+                    const mockComponent = function() {};
+                    const mockBehavior = function() {};
+                    const mockGetApp = function() {};
+                    const mockGetCurrentPages = function() {};
+                    const mockConsole = { log: console.log, warn: console.warn, error: console.error };
+                    const mockRequireMiniProgram = function() {};
+                    const mockWXWebAssembly = {};
+                    const mockWxCodeSpace = {};
+                    factory(vmDefine, vmRequire, module, exports, mockGlobal, mockWx, mockApp, mockPage, mockComponent, mockBehavior, mockGetApp, mockGetCurrentPages, mockConsole, mockRequireMiniProgram, mockWXWebAssembly, mockWxCodeSpace);
                 },
                 requirePlugin() {
                 }
