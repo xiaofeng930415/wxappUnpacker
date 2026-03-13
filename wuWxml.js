@@ -454,6 +454,17 @@ function doWxml(state, dir, name, code, z, xPool, rDs, wxsList, moreInfo) {
     wu.save(name, result.join(""));
 }
 
+/**
+ * 尝试将单个页面函数反编译为 wxml，并在失败时落盘错误现场。
+ * @param {string} dir 输出目录。
+ * @param {string} name 页面标识或相对路径。
+ * @param {string} code 页面函数字符串代码。
+ * @param {Object|Array} z Z 结构映射。
+ * @param {Array|string[]} xPool 页面路径池。
+ * @param {Object} rDs 模板函数映射。
+ * @param {...any} args 额外参数（wxsList、moreInfo）。
+ * @returns {void}
+ */
 function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
     console.log("Decompile " + name + "...");
     let state = [null];
@@ -474,6 +485,12 @@ function tryWxml(dir, name, code, z, xPool, rDs, ...args) {
     }
 }
 
+/**
+ * 还原单个 wxs 模块源码并格式化输出。
+ * @param {string} code 编译后的 wxs 包装代码。
+ * @param {string} [name] 当前文件名，用于路径前缀清理。
+ * @returns {string} 还原后的 wxs 代码。
+ */
 function doWxs(code, name) {
     name = name || '';
     name = name.substring(0, name.lastIndexOf('/') + 1);
@@ -567,6 +584,14 @@ function transformNew(code, nv_require_patt) { // 从0提取所需代码
     return _code;
 }
 
+/**
+ * 从 page-frame/app-wxss 脚本中恢复 WXML 与 WXS 文件。
+ * @param {string} name page-frame 类文件路径。
+ * @param {(deletable:Object<string,number>)=>void} cb 完成回调。
+ * @param {string[]} order 命令行选项集合（不含前导 -）。
+ * @param {string} [mainDir] 分包输出目录。
+ * @returns {void}
+ */
 function doFrame(name, cb, order, mainDir) {
     let moreInfo = order.includes("m");
     const typeOrder = order.find(item => item.startsWith("t="));

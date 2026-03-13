@@ -8,6 +8,11 @@ const del = require('./utils/del.js');
 
 const fs = require("fs");
 
+/**
+ * 解析 wxapkg 头部并返回文件索引区与数据区长度。
+ * @param {Buffer} buf 包头缓冲区，长度应为 14 字节。
+ * @returns {[number, number]} [infoListLength, dataLength]
+ */
 function header(buf) {
     console.log("\nHeader info:");
     let firstMark = buf.readUInt8(0);
@@ -50,6 +55,11 @@ function header(buf) {
     return [infoListLength, dataLength];
 }
 
+/**
+ * 从文件索引区生成解包文件列表。
+ * @param {Buffer} buf 文件索引区缓冲区。
+ * @returns {{name:string,off:number,size:number}[]} 解包条目列表。
+ */
 function genList(buf) {
     console.log("\nFile list info:");
     let fileCount = buf.readUInt32BE(0);
@@ -70,12 +80,26 @@ function genList(buf) {
     return fileInfo;
 }
 
+/**
+ * 将索引列表中的文件内容切片并写入目标目录。
+ * @param {string} dir 输出目录。
+ * @param {Buffer} buf 原始 wxapkg 全量缓冲区。
+ * @param {{name:string,off:number,size:number}[]} list 文件索引列表。
+ * @returns {void}
+ */
 function saveFile(dir, buf, list) {
     console.log("Saving files...");
     for (let info of list)
         wu.save(path.resolve(dir, (info.name.startsWith("/") ? "." : "") + info.name), buf.slice(info.off, info.off + info.size));
 }
 
+/**
+ * 创建解包后清理调度器，支持主流程触发与 beforeExit 兜底触发。
+ * @param {string} dir 解包输出目录。
+ * @param {string[]} order 命令行选项集合（不含前导 -）。
+ * @param {Function} doneCb 清理结束回调。
+ * @returns {{trigger:(source:string)=>void,scheduleFallback:()=>void}}
+ */
 function createCleanupScheduler(dir, order, doneCb) {
     let cleaned = false;
     let fallbackListener = null;
@@ -144,6 +168,13 @@ function createCleanupScheduler(dir, order, doneCb) {
     };
 }
 
+/**
+ * 解包后编排恢复流程（配置、JS、WXML、WXSS）并聚合删除权重。
+ * @param {string} dir 解包输出目录。
+ * @param {Function} cb 完成回调。
+ * @param {string[]} order 命令行选项集合（不含前导 -）。
+ * @returns {void}
+ */
 function packDone(dir, cb, order) {
     console.log("Unpack done.");
     let weappEvent = new wu.CntEvent, needDelete = {};
@@ -160,6 +191,11 @@ function packDone(dir, cb, order) {
         });
     });
 
+    /**
+     * 汇总各子处理器返回的可删除权重。
+     * @param {Object<string, number>} deletable 文件删除权重映射。
+     * @returns {void}
+     */
     function doBack(deletable) {
         for (let key in deletable) {
             if (!needDelete[key]) needDelete[key] = 0;
@@ -168,6 +204,13 @@ function packDone(dir, cb, order) {
         weappEvent.decount();
     }
 
+    /**
+     * 在候选文件中定位 page-frame 类入口并触发 WXML 还原。
+     * @param {string[]} fileList 候选文件名列表。
+     * @param {string} dir 当前工作目录。
+     * @param {string} [mainDir] 分包输出目录。
+     * @returns {boolean} 是否成功命中并处理。
+     */
     function dealPageFrame(fileList, dir, mainDir) {
         for (const fileName of fileList) {
             const filePath = path.resolve(dir, fileName);
@@ -183,6 +226,13 @@ function packDone(dir, cb, order) {
         return false;
     }
 
+    /**
+     * 执行主恢复流程：配置恢复、JS 拆分、WXML/WXS 恢复、WXSS 恢复。
+     * @param {string} dir 当前包目录。
+     * @param {string} [mainDir] 分包归并目录。
+     * @param {string} [nowDir] 当前遍历根目录（分包模式）。
+     * @returns {void}
+     */
     function dealThreeThings(dir, mainDir, nowDir) {
         console.log("Split app-service.js (or appservice.js) and make up configs & wxss & wxml & wxs...");
 
@@ -256,6 +306,12 @@ function packDone(dir, cb, order) {
                 console.log("now dir: " + dir);
                 console.log("param of mainDir: " + mainDir);
 
+                /**
+                 * 递归查找包含 app-service.js/appservice.js 的子包工作目录。
+                 * @param {string} dir 当前遍历目录。
+                 * @param {string} oldDir 原始主包目录参数。
+                 * @returns {boolean|undefined}
+                 */
                 let findDir = function (dir, oldDir) {
                     let files = fs.readdirSync(dir);
                     for (const file of files) {
@@ -292,6 +348,13 @@ function packDone(dir, cb, order) {
     }
 }
 
+/**
+ * 单个 wxapkg 文件解包入口。
+ * @param {string} name wxapkg 文件路径。
+ * @param {Function} cb 当前文件处理完成后的回调。
+ * @param {string[]} order 命令行选项集合（不含前导 -）。
+ * @returns {void}
+ */
 function doFile(name, cb, order) {
     // for (let ord of order) if (ord.startsWith("s=")) global.subPack = ord.slice(3);
     for (let ord of order) {

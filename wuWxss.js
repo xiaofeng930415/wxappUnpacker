@@ -20,6 +20,14 @@ function write(content, filename) {
     // })
 }
 
+/**
+ * 从 page-frame/app-wxss 运行时脚本中恢复并落盘 wxss 文件。
+ * @param {string} dir 当前包目录。
+ * @param {(deletable:Object<string,number>)=>void} cb 完成回调。
+ * @param {string} [mainDir] 分包归并输出目录。
+ * @param {string} [nowDir] 分包遍历根目录。
+ * @returns {void}
+ */
 function doWxss(dir, cb, mainDir, nowDir) {
     let saveDir = dir;
     let isSubPkg = mainDir && mainDir.length > 0;

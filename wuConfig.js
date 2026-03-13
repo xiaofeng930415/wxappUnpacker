@@ -4,6 +4,11 @@ const path = require("path");
 const crypto = require("crypto");
 const {VM} = require('vm2');
 
+/**
+ * 从 workers.js 中解析公共 workers 目录。
+ * @param {string} name workers.js 文件路径。
+ * @returns {string|boolean} workers 公共目录，未命中时返回 false。
+ */
 function getWorkerPath(name) {
     let code = fs.readFileSync(name, {encoding: 'utf8'});
     let commPath = false;
@@ -24,6 +29,12 @@ function getWorkerPath(name) {
     return commPath;
 }
 
+/**
+ * 解析 app-config.json 并拆分生成 app.json 与页面级 json 配置。
+ * @param {string} configFile app-config.json 文件路径。
+ * @param {(deletable:Object<string,number>)=>void} cb 完成回调。
+ * @returns {void}
+ */
 function doConfig(configFile, cb) {
     let dir = path.dirname(configFile);
     wu.get(configFile, content => {
@@ -185,6 +196,12 @@ function doConfig(configFile, cb) {
     });
 }
 
+/**
+ * 解析插件配置并生成 plugin.json 与页面/组件 json 配置。
+ * @param {string} configFile 插件配置文件路径。
+ * @param {(deletable:Object<string,number>)=>void} cb 完成回调。
+ * @returns {void}
+ */
 function doPluginConfig(configFile, cb) {
     let dir = path.dirname(configFile);
     wu.get(configFile, content => {

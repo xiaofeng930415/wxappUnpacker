@@ -4,10 +4,22 @@ const UglifyJS = require("uglify-es");
 const {js_beautify} = require("js-beautify");
 const {VM} = require('vm2');
 
+/**
+ * 通过 uglify-es 的 beautify 选项格式化 JS。
+ * @param {string} code 原始 JS 代码。
+ * @returns {string} 格式化后的 JS 字符串。
+ */
 function jsBeautify(code) {
     return UglifyJS.minify(code, {mangle: false, compress: false, output: {beautify: true, comments: true}}).code;
 }
 
+/**
+ * 拆分 app-service/appservice/workers 这类打包 JS，并回写为独立源码文件。
+ * @param {string} name 待拆分 JS 文件路径。
+ * @param {Function} cb 拆分完成回调，参数为删除权重映射。
+ * @param {string} [mainDir] 分包输出目录。
+ * @returns {void}
+ */
 function splitJs(name, cb, mainDir) {
     let isSubPkg = mainDir && mainDir.length > 0;
     let dir = path.dirname(name);

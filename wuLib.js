@@ -3,6 +3,9 @@ const path = require("path");
 const os = require('os');
 let platform = os.platform();
 
+/**
+ * 计数型事件聚合器，用于等待多路异步任务结束后统一触发回调。
+ */
 class CntEvent {
     constructor() {
         this.cnt = 0;
@@ -74,6 +77,12 @@ class LimitedRunner {
 let ioEvent = new CntEvent;
 let ioLimit = new LimitedRunner(4096);
 
+/**
+ * 递归创建目录。
+ * @param {string} dir 目标目录。
+ * @param {Function} cb 创建完成回调。
+ * @returns {void}
+ */
 function mkdirs(dir, cb) {
     ioLimit.runWithCb(fs.stat.bind(fs), dir, (err, stats) => {
         if (err) mkdirs(path.dirname(dir), () => fs.mkdir(dir, cb));
@@ -82,6 +91,12 @@ function mkdirs(dir, cb) {
     });
 }
 
+/**
+ * 异步保存文件，自动创建父目录，并纳入 ioEvent 计数。
+ * @param {string} name 文件绝对路径。
+ * @param {string|Buffer} content 写入内容。
+ * @returns {void}
+ */
 function save(name, content) {
     ioEvent.encount();
     mkdirs(path.dirname(name), () => ioLimit.runWithCb(fs.writeFile.bind(fs), name, content, err => {
@@ -96,7 +111,13 @@ function save(name, content) {
     }));
 }
 
-// 兼容：默认以 utf8 文本读取；当调用方传入 { encoding: null } 时返回 Buffer
+/**
+ * 读取文件内容，默认返回 utf8 文本；encoding 为 null 时返回 Buffer。
+ * @param {string} name 文件路径。
+ * @param {(data:string|Buffer)=>void} cb 读取完成回调。
+ * @param {{encoding:string|null}} [opt] 读取选项。
+ * @returns {void}
+ */
 function get(name, cb, opt = {encoding: 'utf8'}) {
     ioEvent.encount();
     ioLimit.runWithCb(fs.readFile.bind(fs), name, opt, (err, data) => {
@@ -106,6 +127,11 @@ function get(name, cb, opt = {encoding: 'utf8'}) {
     });
 }
 
+/**
+ * 异步删除文件，并纳入 ioEvent 计数。
+ * @param {string} name 文件路径。
+ * @returns {void}
+ */
 function del(name) {
     ioEvent.encount();
     ioLimit.runWithCb(fs.unlink.bind(fs), name, ioEvent.decount);
@@ -140,6 +166,12 @@ function scanDirByExt(dir, ext, cb) {
     helper(dir, ext, scanEvent);
 }
 
+/**
+ * 计算 from 到 to 的相对目录路径（统一处理 win/posix 分隔符）。
+ * @param {string} to 目标路径。
+ * @param {string} from 起始路径。
+ * @returns {string} 相对路径。
+ */
 function toDir(to, from) {//get relative path without posix/win32 problem
     if (from[0] == ".") from = from.slice(1);
     if (to[0] == ".") to = to.slice(1);
@@ -173,6 +205,12 @@ function commonDir(pathA, pathB) {
     return pathA.slice(0, len);
 }
 
+/**
+ * 统一解析命令行参数并按文件参数逐个调用处理函数。
+ * @param {(file:string,next:Function,orders:string[])=>void} cb 文件处理函数。
+ * @param {string} helper 未传文件时展示的帮助文本。
+ * @returns {void}
+ */
 function commandExecute(cb, helper) {
     console.time("Total use");
 

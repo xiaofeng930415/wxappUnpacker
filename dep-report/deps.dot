@@ -1,0 +1,18 @@
+digraph deps {
+  rankdir=LR;
+  "wuWxapkg.js" -> "wuLib.js";
+  "wuWxapkg.js" -> "wuJs.js";
+  "wuWxapkg.js" -> "wuConfig.js";
+  "wuWxapkg.js" -> "wuWxml.js";
+  "wuWxapkg.js" -> "wuWxss.js";
+  "wuWxapkg.js" -> "utils/del.js";
+  "wuJs.js" -> "wuLib.js";
+  "wuConfig.js" -> "wuLib.js";
+  "wuWxml.js" -> "wuLib.js";
+  "wuWxml.js" -> "wuRestoreZ.js";
+  "wuWxml.js" -> "wuJs.js";
+  "wuWxml.js" -> "utils.js";
+  "wuWxss.js" -> "wuLib.js";
+  "wuWxss.js" -> "wxss/index.js";
+  "utils/del.js" -> "utils/utils.js";
+}

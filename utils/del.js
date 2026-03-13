@@ -1,6 +1,11 @@
 const fs = require('fs');
 const { getFilesSync, getFilesPattern } = require('./utils.js');
 
+/**
+ * 删除解包后可清理的中间文件并返回统计结果。
+ * @param {string} base_path 解包输出根目录。
+ * @returns {{basePath:string,matchedCount:number,deletedCount:number,failedCount:number,failed:Array}} 删除结果摘要。
+ */
 function doDel(base_path) {
   let del_files_pattern = [
     '**/**/{appservice,app-service,pageframe,page-frame,app-wxss}.js',
