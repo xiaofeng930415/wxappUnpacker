@@ -1,0 +1,6 @@
+- [x] 入口层可识别并传递目标类型参数（`miniapp` / `plugin`）
+- [x] `wuWxml.doFrame()` 到 `wuRestoreZ.getZ()/catchZ()` 参数透传完整
+- [x] `plugin` 模式下启用 `gz$gwx_wx...` 插件分组匹配
+- [x] `miniapp` 模式下不启用 `gz$gwx_wx...` 插件分组匹配
+- [x] 普通小程序样本验证通过：`wxml` 与 `js/json/wxss` 对应关系正确
+- [x] 插件样本验证通过：插件页面 `wxml` 还原无缺失
