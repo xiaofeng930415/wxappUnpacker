@@ -75,7 +75,13 @@ function catchZGroupWx(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
-function catchZ(code, cb) {
+function normalizeTargetType(targetType) {
+	return targetType === "plugin" ? "plugin" : "miniapp";
+}
+
+function catchZ(code, cb, targetType = "miniapp") {
+	const resolvedTargetType = normalizeTargetType(targetType);
+	const enablePluginMatch = resolvedTargetType === "plugin";
 	let zArr = {};
 	let _cb = ({mul}) => {
 		Object.assign(zArr, mul);
@@ -87,9 +93,15 @@ function catchZ(code, cb) {
 	if (groupTest !== null) catchZGroupNew(code, groupTest, _cb);
 	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
 	if (groupTest !== null) catchZGroupNewNew(code, groupTest, _cb);
-	groupTest = code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g);
-	if (groupTest !== null) catchZGroupWx(code, groupTest, _cb);
-	console.log("groupTest:", groupTest);
+	let pluginMatchCount = 0;
+	if (enablePluginMatch) {
+		groupTest = code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g);
+		if (groupTest !== null) {
+			pluginMatchCount = groupTest.length;
+			catchZGroupWx(code, groupTest, _cb);
+		}
+	}
+	console.log("[restoreZ] targetType=%s pluginMatch=%s pluginHits=%d", resolvedTargetType, enablePluginMatch ? "on" : "off", pluginMatchCount);
 
 	// 完善zArr的获取逻辑, 兼容同时包含模式
 	if(Object.keys(zArr).length){
@@ -135,7 +147,6 @@ function catchZ(code, cb) {
 	} 
 	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), lastPtr + step);
 	vm.run(code);
-	console.log('code:', code);
 	cb(z);
 }
 
@@ -383,7 +394,7 @@ function restoreAll(z) {
 }
 
 module.exports = {
-	getZ(code, cb) {
-		catchZ(code, z => cb(restoreAll(z)));
+	getZ(code, cb, targetType = "miniapp") {
+		catchZ(code, z => cb(restoreAll(z)), targetType);
 	}
 };
