@@ -569,6 +569,10 @@ function transformNew(code, nv_require_patt) { // 从0提取所需代码
 
 function doFrame(name, cb, order, mainDir) {
     let moreInfo = order.includes("m");
+    const typeOrder = order.find(item => item.startsWith("t="));
+    const targetType = typeOrder ? typeOrder.slice(2) : "miniapp";
+    const resolvedTargetType = targetType === "plugin" ? "plugin" : "miniapp";
+    console.log("[wxml] targetType=%s", resolvedTargetType);
     wxsList = {};
     wu.get(name, codeBuf => {
         let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
@@ -747,7 +751,7 @@ function doFrame(name, cb, order, mainDir) {
             }
             for (let name in rE) tryWxml(dir, name, rE[name].f.toString(), z, x, rD[name], wxsList, moreInfo);
             cb({[name]: 4});
-        });
+        }, resolvedTargetType);
     }, { encoding: null });
 }
 
