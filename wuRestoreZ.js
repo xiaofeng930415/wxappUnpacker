@@ -59,7 +59,7 @@ function catchZGroupNewNew(code, groupPreStr, cb) {
 	cb({"mul": zArr});
 }
 
-function catchZGroupWx(code, groupPreStr, cb) {
+function catchZGroupWxPlugin(code, groupPreStr, cb) {
 	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
 	let zArr = {};
 	for (let preStr of groupPreStr) {
@@ -98,7 +98,7 @@ function catchZ(code, cb, targetType = "miniapp") {
 		groupTest = code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g);
 		if (groupTest !== null) {
 			pluginMatchCount = groupTest.length;
-			catchZGroupWx(code, groupTest, _cb);
+			catchZGroupWxPlugin(code, groupTest, _cb);
 		}
 	}
 	console.log("[restoreZ] targetType=%s pluginMatch=%s pluginHits=%d", resolvedTargetType, enablePluginMatch ? "on" : "off", pluginMatchCount);
