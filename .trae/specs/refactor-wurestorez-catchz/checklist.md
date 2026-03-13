@@ -1,0 +1,5 @@
+- [x] `catchZ()` 分组匹配行为与重构前一致
+- [x] `catchZ()` 回退匹配行为与重构前一致
+- [x] `getZ(code, cb, targetType)` 对外接口不变
+- [x] 诊断日志与正则覆盖不变
+- [x] smoke 脚本覆盖：分组命中 / plugin 开关 / 回退路径
