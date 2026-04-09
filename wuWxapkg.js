@@ -220,6 +220,7 @@ function packDone(dir, cb, order) {
             doBack({});
             return;
         }
+        console.log("可用候选文件:", candidates.map(item => item.fileName));
         function tryCandidate(index) {
             if (index >= candidates.length) {
                 console.error("[wxml] all candidates failed dir=%s candidates=%j", dir, candidates.map(item => item.fileName));
@@ -271,7 +272,7 @@ function packDone(dir, cb, order) {
             console.log('deal js2 ok');
         }
         //deal html
-        // 0409 在处理到 taro 开发的小程序时，其 page-frame.js 是空的
+        // 0409 在处理到 taro 开发的小程序时，其 page-frame.js 是空壳子，没有实际意义，最后是用app-service.js做兜底
         const filesToCheck = ["page-frame.html", "pageframe.html", "page-frame.js", "pageframe.js", "app-wxss.js",  "app-service.js", "appservice.js",];;
         
         dealPageFrame(filesToCheck, dir, mainDir);
