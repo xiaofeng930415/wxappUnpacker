@@ -12,16 +12,13 @@ _860328216_6
 _1123949441_945
 _1708145854_3
 _1219728179_12
-AAAAA/app-service.js
-AAAA/_-47_core.js
-AAAA/_-70_core.js
-AAAA/_-474355261_30.app-service copy.js
-AAAA/_-474355261_30.app-service.js
-AAAA/_-701829211_3.app-service copy.js
-AAAA/_-701829211_3.app-service.js
+AAAAA/**
 **.wxapkg
 **.rar
 日志_**.**
 test_verify_fix
 new_code_after.js
 new_code_before.js
+logs
+unknown_callee.log
+wxml_error.log
