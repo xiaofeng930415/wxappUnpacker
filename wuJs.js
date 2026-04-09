@@ -49,38 +49,73 @@ function splitJs(name, cb, mainDir) {
         };
         const vmRequire = function () {
         };
-        let vm = new VM({
-            sandbox: {
-                require: vmRequire,
-                define: vmDefine,
-                __g() {},
-                __vd_version_info__: {},
-                __wxAppCode__: {},
-                definePlugin(name, factory) {
-                    const module = { exports: {} };
-                    const exports = module.exports;
-                    const mockGlobal = {
-                        __wxAppCode__: {},
-                        __wxCodeSpace__: {},
-                        publishDomainComponents: function() {}
-                    };
-                    const mockWx = {};
-                    const mockApp = function() {};
-                    const mockPage = function() {};
-                    const mockComponent = function() {};
-                    const mockBehavior = function() {};
-                    const mockGetApp = function() {};
-                    const mockGetCurrentPages = function() {};
-                    const mockConsole = { log: console.log, warn: console.warn, error: console.error };
-                    const mockRequireMiniProgram = function() {};
-                    const mockWXWebAssembly = {};
-                    const mockWxCodeSpace = {};
-                    factory(vmDefine, vmRequire, module, exports, mockGlobal, mockWx, mockApp, mockPage, mockComponent, mockBehavior, mockGetApp, mockGetCurrentPages, mockConsole, mockRequireMiniProgram, mockWXWebAssembly, mockWxCodeSpace);
-                },
-                requirePlugin() {
-                }
+        const mockWx = new Proxy({
+            getStorageSync() { return {}; },
+            setStorageSync() {},
+            getSystemInfoSync() { return {}; },
+            getAccountInfoSync() {
+                return { miniProgram: { appId: "", envVersion: "release" } };
+            }
+        }, {
+            get(target, key) {
+                if (key in target) return target[key];
+                const noop = function () { return {}; };
+                target[key] = noop;
+                return noop;
             }
         });
+        const sandbox = {
+            require: vmRequire,
+            define: vmDefine,
+            __g() {},
+            __vd_version_info__: {},
+            __wxAppCode__: {},
+            // 解包场景下仅需要“可访问的最小全局对象”，避免 vm.run 因缺失变量中断。
+            __wxConfig: {
+                page: {},
+                subPackages: [],
+                resolveAlias: {},
+                platform: "devtools"
+            },
+            Reporter: {
+                thirdErrorReport() {}
+            },
+            wx: mockWx,
+            App() {},
+            Page() {},
+            Component() {},
+            Behavior() {},
+            getApp() { return {}; },
+            getCurrentPages() { return []; },
+            definePlugin(name, factory) {
+                const module = { exports: {} };
+                const exports = module.exports;
+                const mockGlobal = {
+                    __wxAppCode__: {},
+                    __wxCodeSpace__: {},
+                    publishDomainComponents: function() {}
+                };
+                const mockWx = {};
+                const mockApp = function() {};
+                const mockPage = function() {};
+                const mockComponent = function() {};
+                const mockBehavior = function() {};
+                const mockGetApp = function() {};
+                const mockGetCurrentPages = function() {};
+                const mockConsole = { log: console.log, warn: console.warn, error: console.error };
+                const mockRequireMiniProgram = function() {};
+                const mockWXWebAssembly = {};
+                const mockWxCodeSpace = {};
+                factory(vmDefine, vmRequire, module, exports, mockGlobal, mockWx, mockApp, mockPage, mockComponent, mockBehavior, mockGetApp, mockGetCurrentPages, mockConsole, mockRequireMiniProgram, mockWXWebAssembly, mockWxCodeSpace);
+            },
+            requirePlugin() {
+            }
+        };
+        sandbox.global = sandbox;
+        sandbox.globalThis = sandbox;
+        sandbox.window = sandbox;
+        sandbox.self = sandbox;
+        let vm = new VM({ sandbox });
         if (isSubPkg) {
             code = code.slice(code.indexOf("define("));
         }
@@ -92,10 +127,15 @@ function splitJs(name, cb, mainDir) {
         try {
             vm.run(code);
         } catch (e) {
-            console.log("Fail to run \"" + name + "\".");
-            console.log(e);
-            debugger;
-            throw e;
+            // console.error("Fail to run \"" + name + "\".");
+            // console.error(e);
+            // debugger;
+            // throw e;
+            console.error("Skip split for \"%s\" and keep original bundle.", name);
+            console.error(e);
+            if (!needDelList[name]) needDelList[name] = 0;
+            cb(needDelList);
+            return;
         }
         console.log("Splitting \"" + name + "\" done.");
         if (!needDelList[name]) needDelList[name] = 8;

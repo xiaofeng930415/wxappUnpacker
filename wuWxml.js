@@ -32,9 +32,19 @@ function resolveZMulName(funName) {
     return null;
 }
 
-function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
+function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0", diagState) {
+    const diag = diagState || { missingContent: {} };
+    function logMissingContent(kind, payload) {
+        const count = diag.missingContent[kind] || 0;
+        if (count < 3) {
+            console.error("[wxml] missing content kind=%s payload=%j", kind, payload);
+        } else if (count === 3) {
+            console.error("[wxml] missing content kind=%s (more logs suppressed)", kind);
+        }
+        diag.missingContent[kind] = count + 1;
+    }
     function anaRecursion(core, fakePool = {}) {
-        return analyze(core, z, namePool, xPool, fakePool, zMulName);
+        return analyze(core, z, namePool, xPool, fakePool, zMulName, diag);
     }
 
     function push(name, elem) {
@@ -154,13 +164,12 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                     content
                                 });
                                 if(!content){
-                                    console.error('Error: content is undefined in _o');
-                                    console.error('dec.id.name:', dec.id.name);
-                                    console.error('zMulName:', zMulName);
-                                    console.error('dec.init.arguments[0].value:', dec.init.arguments[0].value);
-                                    if (z.mul) {
-                                         console.error('Object.keys(z.mul):', Object.keys(z.mul));
-                                    }
+                                    logMissingContent("_o", {
+                                        node: dec.id.name,
+                                        zMulName,
+                                        key: dec.init.arguments[0].value,
+                                        zMulKeys: z.mul ? Object.keys(z.mul).slice(0, 12) : []
+                                    });
                                 }
                                 break;
                             case "_oz":
@@ -171,13 +180,12 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                     content
                                 });
                                 if(!content){
-                                    console.error('Error: content is undefined in _oz');
-                                    console.error('dec.id.name:', dec.id.name);
-                                    console.error('zMulName:', zMulName);
-                                    console.error('dec.init.arguments[1].value:', dec.init.arguments[1].value);
-                                    if (z.mul) {
-                                         console.error('Object.keys(z.mul):', Object.keys(z.mul));
-                                    }
+                                    logMissingContent("_oz", {
+                                        node: dec.id.name,
+                                        zMulName,
+                                        key: dec.init.arguments[1].value,
+                                        zMulKeys: z.mul ? Object.keys(z.mul).slice(0, 12) : []
+                                    });
                                 } else {
                                     // debugger;
                                 }
