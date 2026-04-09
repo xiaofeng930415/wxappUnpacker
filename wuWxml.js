@@ -7,6 +7,7 @@ const esprima = require('esprima');
 const {VM} = require('vm2');
 const escodegen = require('escodegen');
 const { write } = require('./utils.js');
+const logger = require("./utils/logger.js");
 
 /**
  * 将 gz$gwx... 函数名归一化为 zMulName
@@ -37,9 +38,9 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0", diagSt
     function logMissingContent(kind, payload) {
         const count = diag.missingContent[kind] || 0;
         if (count < 3) {
-            console.error("[wxml] missing content kind=%s payload=%j", kind, payload);
+            logger.debug("[wxml] missing content", { kind, payload });
         } else if (count === 3) {
-            console.error("[wxml] missing content kind=%s (more logs suppressed)", kind);
+            logger.debug("[wxml] missing content suppressed", { kind });
         }
         diag.missingContent[kind] = count + 1;
     }
@@ -71,10 +72,9 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0", diagSt
                                 try {
                                     namePool[f.arguments[1].name].v[f.arguments[2].value] = z.mul[zMulName][f.arguments[3].value];
                                 } catch (error) {
-                                    console.error(error);
+                                    logger.debug("[wxml] _rz resolve failed", { reason: String(error) });
                                     const rest = [f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value];
-                                    console.log('[f.arguments[1].name, zMulName, f.arguments[2].value, f.arguments[3].value]');
-                                    console.log(rest);
+                                    logger.trace("[wxml] _rz context", { rest });
                                 }
                                 break;
                             case "_":
@@ -300,11 +300,10 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0", diagSt
                             try{
                                 return z.mul[zMulName][e.test.arguments[1].value];
                             }catch(e_){
-                                console.log("z.mul\n",z.mul)
-                                console.log("zMulName\n",zMulName)
-                                console.log("e.test.arguments\n",e?.test?.arguments)
-                                debugger;
-                                //TODO handle the exception
+                                logger.debug("[wxml] parse_OFun _oz failed", {
+                                    zMulName,
+                                    args: e?.test?.arguments
+                                });
                                 throw new Error(e_);
                             }
                         }
@@ -612,7 +611,7 @@ function doFrame(name, cb, order, mainDir, onError) {
     const typeOrder = order.find(item => item.startsWith("t="));
     const targetType = typeOrder ? typeOrder.slice(2) : "miniapp";
     const resolvedTargetType = targetType === "plugin" ? "plugin" : "miniapp";
-    console.log("[wxml] targetType=%s", resolvedTargetType);
+    logger.debug("[wxml] targetType", { targetType: resolvedTargetType });
     wxsList = {};
     let done = false;
     function fail(stage, error, extra = {}) {
@@ -624,7 +623,7 @@ function doFrame(name, cb, order, mainDir, onError) {
             targetType: resolvedTargetType,
             originalError: error && (error.stack || error.message || String(error))
         }, extra);
-        console.error("[wxml] doFrame failed %j", payload);
+        logger.warn("[wxml] doFrame failed", payload);
         if (typeof onError === "function") onError(error, payload);
     }
     wu.get(name, codeBuf => {
@@ -743,7 +742,7 @@ function doFrame(name, cb, order, mainDir, onError) {
                 try{
                     vm.run(vmCode);
                 }catch(e){
-                    console.error(552, e);
+                    logger.debug("[wxml] vm run fallback 552", { reason: String(e) });
 
                     // 运行失败,尝试转化一下代码
                     let endOfRequire = code.indexOf("var x=[];");
@@ -767,7 +766,7 @@ function doFrame(name, cb, order, mainDir, onError) {
                     }catch(e){
                         //TODO handle the exception
                         // 还出错就没办法了
-                        console.error(577, e);
+                        logger.debug("[wxml] vm run fallback 577", { reason: String(e) });
                     }
                     
                     // write(vmCode, path.join(__dirname, '____vmCode.js'));
@@ -775,16 +774,14 @@ function doFrame(name, cb, order, mainDir, onError) {
                 }
             }
             //// console.log('==============================');
-            console.log("rE:\n", rE);
-            console.log('==============================');
-            //// console.log("rD:\n", rD);
-            console.log('==============================');
-            console.log("rF:\n", rF);
-            //// console.log('==============================');
-            console.log("x:\n", x);
-            //// console.log('==============================');
-            console.log("requireInfo:\n", requireInfo);
-            //// console.log('==============================');
+            if (logger.getState().verbose) {
+                logger.debug("[wxml] frame artifacts", {
+                    rEKeys: Object.keys(rE || {}),
+                    rFKeys: Object.keys(rF || {}),
+                    xCount: Array.isArray(x) ? x.length : 0,
+                    requireInfoKeys: Object.keys(requireInfo || {})
+                });
+            }
             let dir = mainDir || path.dirname(name), pF = [];
             for (let info in rF) if (typeof rF[info] == "function") {
                 let name = path.resolve(dir, (info[0] == '/' ? '.' : '') + info), ref = rF[info]();

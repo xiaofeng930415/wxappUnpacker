@@ -1,4 +1,5 @@
 const {VM} = require('vm2');
+const logger = require("./utils/logger.js");
 
 const debugPrefixes = [
 	"(function(z){var a=11;function Z(ops,debugLine){",
@@ -51,7 +52,11 @@ function extractZGroupMap(code, groupPreStr, {patternType, keyRegex}) {
 	if (groupPreStr.length > 0 && Object.keys(zArr).length === 0) {
 		throw new Error(`[restoreZ] ${patternType} 提取结果为空`);
 	}
-	console.log("[restoreZ] pattern=%s matched=%d keys=%s", patternType, groupPreStr.length, Object.keys(zArr).join(","));
+	logger.debug("[restoreZ] pattern matched", {
+		patternType,
+		matched: groupPreStr.length,
+		keys: Object.keys(zArr)
+	});
 	return zArr;
 }
 
@@ -157,7 +162,7 @@ function catchZ(code, cb, targetType = "miniapp") {
 	function merge2ZGroups({mul, patternType}) {
 		for (let key in mul) {
 			if (key in zGroupMap) {
-				console.warn("[restoreZ] key collision key=%s oldPattern=%s newPattern=%s", key, zGroupSources[key], patternType);
+				logger.warn("[restoreZ] key collision", { key, oldPattern: zGroupSources[key], newPattern: patternType });
 			}
 			zGroupMap[key] = mul[key];
 			zGroupSources[key] = patternType;
@@ -198,7 +203,7 @@ function catchZ(code, cb, targetType = "miniapp") {
 			throw new Error("catchZGroupWxPlugin: 未命中");
 		}
 	}
-	console.log("[restoreZ] targetType=%s pluginMatch=%s pluginHits=%d", resolvedTargetType, enablePluginMatch ? "on" : "off", pluginMatchCount);
+	logger.progress("restoreZ", "group-match", "done", `target=${resolvedTargetType} pluginHits=${pluginMatchCount}`);
 
 	// 完善分组提取的获取逻辑，兼容同时包含多种 gz$gwx 分组模式的情况
 	if (Object.keys(zGroupMap).length) {
@@ -245,8 +250,8 @@ function catchZ(code, cb, targetType = "miniapp") {
 	// 回退路径：不命中任何 gz$gwx 分组模式时，从尾部 ops_set.$gwx 截取可执行片段运行得到 z
 	let { tailPtr, tailStep } = findOpsSetTailInfo(code);
 	if (tailPtr == -1) {
-		console.error("code.length：", code.length);
-		console.error("code[0-100]", code.slice(0, 100));
+		logger.error("[restoreZ] ops tail not found", { codeLength: code.length });
+		logger.debug("[restoreZ] code head", { codeHead: code.slice(0, 120) });
 		throw new Error("lastPtr == -1");
 	} 
 	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), tailPtr + tailStep);

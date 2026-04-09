@@ -5,6 +5,7 @@ const wuMl = require("./wuWxml.js");
 const wuSs = require("./wuWxss.js");
 const path = require("path");
 const del = require('./utils/del.js');
+const logger = require("./utils/logger.js");
 
 const fs = require("fs");
 
@@ -114,7 +115,7 @@ function createCleanupScheduler(dir, order, doneCb) {
             dir,
             options: optionState
         }, extra);
-        console.log("[cleanup] " + JSON.stringify(payload));
+        logger.debug("[cleanup]", payload);
     }
 
     function getSkipReason() {
@@ -136,6 +137,8 @@ function createCleanupScheduler(dir, order, doneCb) {
         const skipReason = getSkipReason();
         if (skipReason) {
             logCleanup("skip", { source, reason: skipReason });
+            const sum = logger.summary({ dir: path.basename(dir) });
+            logger.result("success", `unpack finished dir=${sum.dir} warns=${sum.warns} errors=${sum.errors}`);
             doneCb?.();
             return;
         }
@@ -147,11 +150,15 @@ function createCleanupScheduler(dir, order, doneCb) {
                 matchedCount: result.matchedCount,
                 deletedCount: result.deletedCount
             });
+            const sum = logger.summary({ dir: path.basename(dir) });
+            const level = sum.errors > 0 ? "warning" : "success";
+            logger.result(level, `unpack finished dir=${sum.dir} warns=${sum.warns} errors=${sum.errors} retries=${sum.retries} fallbacks=${sum.fallbacks}`);
         } catch (err) {
             logCleanup("failed", {
                 source,
                 reason: err?.message || String(err)
             });
+            logger.result("failed", `cleanup failed dir=${path.basename(dir)} reason=${err?.message || String(err)}`);
             throw err;
         } finally {
             doneCb?.();
@@ -176,15 +183,15 @@ function createCleanupScheduler(dir, order, doneCb) {
  * @returns {void}
  */
 function packDone(dir, cb, order) {
-    console.log("Unpack done.");
+    logger.progress("pack", "unpack", "done", `dir=${path.basename(dir)}`);
     let weappEvent = new wu.CntEvent, needDelete = {};
     weappEvent.encount(4);
     weappEvent.add(() => {
         wu.addIO(() => {
             console.log("Split and make up done.");
             if (!order.includes("d")) {
-                console.log("Delete files...");
-                wu.addIO(() => console.log("Deleted.\n\nFile done."));
+                logger.progress("pack", "cleanup", "start", "delete transformed files");
+                wu.addIO(() => logger.progress("pack", "cleanup", "done", "delete completed"));
                 for (let name in needDelete) if (needDelete[name] >= 8) wu.del(name);
             }
             cb();
@@ -216,25 +223,35 @@ function packDone(dir, cb, order) {
             .map(fileName => ({ fileName, filePath: path.resolve(dir, fileName) }))
             .filter(item => fs.existsSync(item.filePath));
         if (!candidates.length) {
-            console.error("[wxml] no page-frame-like candidate found dir=%s candidates=%j", dir, fileList);
+            logger.warn("[wxml] no page-frame-like candidate found", {
+                filePath: dir,
+                candidates: fileList.map(item => path.basename(item))
+            });
             doBack({});
             return;
         }
-        console.log("可用候选文件:", candidates.map(item => item.fileName));
+        logger.progress("wxml", "candidate", "ready", `count=${candidates.length} dir=${path.basename(dir)}`);
         function tryCandidate(index) {
             if (index >= candidates.length) {
-                console.error("[wxml] all candidates failed dir=%s candidates=%j", dir, candidates.map(item => item.fileName));
+                logger.error("[wxml] all candidates failed", {
+                    filePath: dir,
+                    candidates: candidates.map(item => item.fileName)
+                });
                 doBack({});
                 return;
             }
             const { fileName, filePath } = candidates[index];
+            logger.progress("wxml", "candidate", "try", `${index + 1}/${candidates.length} ${path.basename(fileName)}`);
             wuMl.doFrame(filePath, deletable => {
                 doBack(deletable);
                 if (!needDelete[filePath]) needDelete[filePath] = 8;
-                console.log(`deal ${mainDir ? 'sub ' : ''}${fileName} ok`);
+                logger.progress("wxml", "candidate", "ok", `${mainDir ? "sub " : ""}${path.basename(fileName)}`);
             }, order, mainDir, (error, payload) => {
-                console.error("[wxml] candidate failed file=%s reason=%s", fileName, error && (error.message || error));
-                if (payload) console.error("[wxml] candidate payload=%j", payload);
+                logger.warn("[wxml] candidate failed", {
+                    filePath: fileName,
+                    reason: error && (error.message || String(error))
+                });
+                logger.markRetry({ filePath, candidate: fileName, payload });
                 tryCandidate(index + 1);
             });
         }
@@ -282,7 +299,7 @@ function packDone(dir, cb, order) {
         } else {
             //Force it run at last, becuase lots of error occured in this part
             wuSs.doWxss(dir, doBack);
-            console.log('deal css ok');
+            logger.progress("wxss", "restore", "queued", `${path.basename(dir)}`);
         }
 
     }
@@ -370,6 +387,10 @@ function packDone(dir, cb, order) {
  * @returns {void}
  */
 function doFile(name, cb, order) {
+    logger.configure({
+        scope: "wxapkg",
+        baseDir: process.cwd()
+    });
     // for (let ord of order) if (ord.startsWith("s=")) global.subPack = ord.slice(3);
     for (let ord of order) {
         if (ord.startsWith("s=")) {
@@ -379,14 +400,14 @@ function doFile(name, cb, order) {
     
 
 
-    console.log("Unpack file " + name + "...");
+    logger.progress("pkg", "unpack", "start", `${path.basename(name)}`);
     let dir = path.resolve(name, "..", path.basename(name, ".wxapkg"));
     const cleanupScheduler = createCleanupScheduler(dir, order, cb);
     const _cb = () => cleanupScheduler.trigger("main");
 
     wu.get(name, buf => {
         let [infoListLength, dataLength] = header(buf.slice(0, 14));
-        if (order.includes("o")) wu.addIO(console.log.bind(console), "Unpack done.");
+        if (order.includes("o")) wu.addIO(() => logger.result("success", "unpack finished by option -o"));
         else wu.addIO(packDone, dir, _cb, order);
         cleanupScheduler.scheduleFallback();
         saveFile(dir, buf, genList(buf.slice(14, infoListLength + 14)));

@@ -3,6 +3,7 @@ const path = require("path");
 const UglifyJS = require("uglify-es");
 const {js_beautify} = require("js-beautify");
 const {VM} = require('vm2');
+const logger = require("./utils/logger.js");
 
 /**
  * 通过 uglify-es 的 beautify 选项格式化 JS。
@@ -39,10 +40,10 @@ function splitJs(name, cb, mainDir) {
             else if ((code.startsWith('(function(){"use strict";') || code.startsWith("(function(){'use strict';")) && code.endsWith("})();")) code = code.slice(25, -5);
             let res = jsBeautify(code);
             if (typeof res == "undefined") {
-                console.log("Fail to delete 'use strict' in \"" + name + "\".");
+                logger.debug("[js] fail to strip use strict", { filePath: name });
                 res = jsBeautify(bcode);
             }
-            console.log(dir, name);
+            logger.debug("[js] split write", { filePath: path.resolve(dir, name) });
             debugger;
             needDelList[path.resolve(dir, name)] = -8;
             wu.save(path.resolve(dir, name), jsBeautify(res));
@@ -120,7 +121,7 @@ function splitJs(name, cb, mainDir) {
             code = code.slice(code.indexOf("define("));
         }
         
-        console.log('splitJs: ' + name);
+        logger.progress("js", "split", "start", path.basename(name));
         // ToFixed TypeError [Error]: $gstack is not a function
         code = code.replace('e.stack = $gstack(e.stack);', '');
         debugger;
@@ -131,13 +132,16 @@ function splitJs(name, cb, mainDir) {
             // console.error(e);
             // debugger;
             // throw e;
-            console.error("Skip split for \"%s\" and keep original bundle.", name);
-            console.error(e);
+            logger.warn("[js] skip split and keep original bundle", {
+                filePath: name,
+                reason: e && (e.message || String(e))
+            });
+            logger.debug("[js] split stack", { filePath: name, stack: e && e.stack });
             if (!needDelList[name]) needDelList[name] = 0;
             cb(needDelList);
             return;
         }
-        console.log("Splitting \"" + name + "\" done.");
+        logger.progress("js", "split", "done", path.basename(name));
         if (!needDelList[name]) needDelList[name] = 8;
         cb(needDelList);
     }, { encoding: null });

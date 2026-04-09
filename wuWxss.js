@@ -6,6 +6,7 @@ const {VM} = require('vm2');
 const cssbeautify = require('cssbeautify');
 const csstree = require('css-tree');
 const cheerio = require('cheerio');
+const logger = require("./utils/logger.js");
 
 function write(content, filename) {
     const _filename = filename || new Date().getTime() + '.txt';
@@ -70,7 +71,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
 					else return "";
 				}
                 if (!actualPure[data] && !blockCss.includes(wu.changeExt(wu.toDir(cssFile, frameName), ""))) {
-                    console.log("Regard " + cssFile + " as pure import file.");
+                    logger.debug("[wxss] regard as pure import", { filePath: cssFile });
                     actualPure[data] = cssFile;
 				}
 				return "";
@@ -141,7 +142,7 @@ function doWxss(dir, cb, mainDir, nowDir) {
         }
 
 
-        console.log('do css runVm: ' + name);
+        logger.progress("wxss", "runVm", "start", path.basename(name));
         let flag = false;
         try {
             // ToFixed TypeError [Error]: $gstack is not a function
@@ -149,9 +150,12 @@ function doWxss(dir, cb, mainDir, nowDir) {
             vm.run(code);
             flag = true;
         } catch (error) {
-            console.log('【error】', error);
-            console.log('===========================');
-            console.log('转化失败,尝试用新方式进行转化');
+            logger.warn("[wxss] vm first pass failed, fallback enabled", {
+                filePath: name,
+                reason: error && (error.message || String(error))
+            });
+            logger.debug("[wxss] first pass stack", { filePath: name, stack: error && error.stack });
+            logger.markFallback({ filePath: name, stage: "first_pass" });
         }
         if(!flag){
             let _code = doAppWxss(code);
@@ -159,9 +163,11 @@ function doWxss(dir, cb, mainDir, nowDir) {
                 vm.run(_code);
                 flag = true;
             } catch (error) {
-                console.log('【error】', error);
-                console.log('===========================');
-                console.log('转化失败,尝试用新方式进行转化失败');
+                logger.error("[wxss] vm fallback failed", {
+                    filePath: name,
+                    reason: error && (error.message || String(error))
+                });
+                logger.debug("[wxss] fallback stack", { filePath: name, stack: error && error.stack });
             }
         }
 
@@ -386,36 +392,32 @@ function doWxss(dir, cb, mainDir, nowDir) {
             pureData = vm.run(code + "\n_C");
             write(JSON.stringify(pureData), 'pureData.txt');
 
-            console.log("Guess wxss(first turn)...");
+            logger.progress("wxss", "phase", "start", "guess first turn");
             // write(scriptCode, 'scriptCode4.js');
             preRun(dir, frameFile, mainCode, files, () => {
-                console.info("dir, frameFile, mainCode, files")
+                logger.trace("[wxss] preRun context", { dir, frameFile, htmlCount: files.length });
                 write(mainCode, "mainCode.js")
                 write(frameFile, "frameFile.txt")
-                console.info(dir)
-                console.info(files)
                 frameName = frameFile;
                 onlyTest = true;
 				runOnce();
                 onlyTest = false;
-                console.log("Import count info: %j", importCnt);
+                logger.debug("[wxss] import count", { importCnt });
                 for (let id in pureData) if (!actualPure[id]) {
                     if (!importCnt[id]) importCnt[id] = 0;
                     if (importCnt[id] <= 1) {
-                        console.log("Cannot find pure import for _C[" + id + "] which is only imported " + importCnt[id] + " times. Let importing become copying.");
+                        logger.debug("[wxss] unresolved pure import copy", { id, count: importCnt[id] });
                     } else {
                         let newFile = path.resolve(saveDir, "__wuBaseWxss__/" + id + ".wxss");
-                        console.log("Cannot find pure import for _C[" + id + "], force to save it in (" + newFile + ").");
+                        logger.warn("[wxss] unresolved pure import, force save", { id, filePath: newFile });
                         id = Number.parseInt(id);
                         actualPure[id] = newFile;
                         cssRebuild.call({cssFile: newFile}, id)();
 					}
 				}
-				console.log("Guess wxss(first turn) done.\nGenerate wxss(second turn)...");
+				logger.progress("wxss", "phase", "next", "generate second turn");
 				runOnce()
-				console.log("Generate wxss(second turn) done.\nSave wxss...");
-
-                console.log('saveDir: ' + saveDir);
+				logger.progress("wxss", "phase", "save", `saveDir=${path.basename(saveDir)}`);
                 for (let name in result) {
                     let pathFile = path.resolve(saveDir, wu.changeExt(name, ".wxss"));
                     wu.save(pathFile, transformCss(result[name]));

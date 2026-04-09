@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require('os');
+const logger = require("./utils/logger.js");
 let platform = os.platform();
 
 /**
@@ -212,14 +213,23 @@ function commonDir(pathA, pathB) {
  * @returns {void}
  */
 function commandExecute(cb, helper) {
+    let orders = [];
+    for (let order of process.argv) if (order.startsWith("-")) orders.push(order.slice(1));
+    const verbose = orders.includes("v") || orders.includes("-verbose") || orders.includes("verbose");
+    const traceEnabled = orders.includes("trace") || orders.includes("-trace");
+    logger.configure({
+        scope: "entry",
+        baseDir: process.cwd(),
+        verbose,
+        traceEnabled
+    });
+    logger.patchConsole();
     console.time("Total use");
 
     function endTime() {
         ioEvent.check(() => console.timeEnd("Total use"));
     }
 
-    let orders = [];
-    for (let order of process.argv) if (order.startsWith("-")) orders.push(order.slice(1));
     let iter = process.argv[Symbol.iterator](), nxt = iter.next(), called = false, faster = orders.includes("f"),
         fastCnt;
     if (faster) {
