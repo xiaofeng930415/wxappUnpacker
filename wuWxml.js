@@ -607,16 +607,31 @@ function transformNew(code, nv_require_patt) { // 从0提取所需代码
  * @param {string} [mainDir] 分包输出目录。
  * @returns {void}
  */
-function doFrame(name, cb, order, mainDir) {
+function doFrame(name, cb, order, mainDir, onError) {
     let moreInfo = order.includes("m");
     const typeOrder = order.find(item => item.startsWith("t="));
     const targetType = typeOrder ? typeOrder.slice(2) : "miniapp";
     const resolvedTargetType = targetType === "plugin" ? "plugin" : "miniapp";
     console.log("[wxml] targetType=%s", resolvedTargetType);
     wxsList = {};
+    let done = false;
+    function fail(stage, error, extra = {}) {
+        if (done) return;
+        done = true;
+        const payload = Object.assign({
+            stage,
+            filePath: name,
+            targetType: resolvedTargetType,
+            originalError: error && (error.stack || error.message || String(error))
+        }, extra);
+        console.error("[wxml] doFrame failed %j", payload);
+        if (typeof onError === "function") onError(error, payload);
+    }
     wu.get(name, codeBuf => {
-        let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
-        getZ(code, z => {
+        try {
+            let code = Buffer.isBuffer(codeBuf) ? codeBuf.toString('utf8') : codeBuf;
+            getZ(code, z => {
+                try {
             //// console.log('==============================');
             // console.info('name', name, '\nz', z);
             //// console.log('==============================');
@@ -651,10 +666,8 @@ function doFrame(name, cb, order, mainDir) {
                     vm.run(vmCode);
                     x = Object.keys(rE);
                 }catch(e){
-                    //TODO handle the exception
-                    // 还出错就没办法了
-                    console.error('[New]', e);
-                    throw new Error('[New]', e);
+                    fail("transform_new_vm", e);
+                    return;
                 }
 
             } else {
@@ -790,8 +803,16 @@ function doFrame(name, cb, order, mainDir) {
                 }
             }
             for (let name in rE) tryWxml(dir, name, rE[name].f.toString(), z, x, rD[name], wxsList, moreInfo);
+            if (done) return;
+            done = true;
             cb({[name]: 4});
+                } catch (e) {
+                    fail("doFrame_main", e);
+                }
         }, resolvedTargetType);
+        } catch (e) {
+            fail("doFrame_getZ", e);
+        }
     }, { encoding: null });
 }
 

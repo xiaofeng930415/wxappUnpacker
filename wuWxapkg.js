@@ -212,18 +212,32 @@ function packDone(dir, cb, order) {
      * @returns {boolean} 是否成功命中并处理。
      */
     function dealPageFrame(fileList, dir, mainDir) {
-        for (const fileName of fileList) {
-            const filePath = path.resolve(dir, fileName);
-            if (fs.existsSync(filePath)) {
-                wuMl.doFrame(filePath, doBack, order, mainDir);
-                if (!needDelete[filePath]) {
-                    needDelete[filePath] = 8;
-                }
-                console.log(`deal ${mainDir ? 'sub ' : ''}${fileName} ok`);
-                return true;
-            }
+        const candidates = fileList
+            .map(fileName => ({ fileName, filePath: path.resolve(dir, fileName) }))
+            .filter(item => fs.existsSync(item.filePath));
+        if (!candidates.length) {
+            console.error("[wxml] no page-frame-like candidate found dir=%s candidates=%j", dir, fileList);
+            doBack({});
+            return;
         }
-        return false;
+        function tryCandidate(index) {
+            if (index >= candidates.length) {
+                console.error("[wxml] all candidates failed dir=%s candidates=%j", dir, candidates.map(item => item.fileName));
+                doBack({});
+                return;
+            }
+            const { fileName, filePath } = candidates[index];
+            wuMl.doFrame(filePath, deletable => {
+                doBack(deletable);
+                if (!needDelete[filePath]) needDelete[filePath] = 8;
+                console.log(`deal ${mainDir ? 'sub ' : ''}${fileName} ok`);
+            }, order, mainDir, (error, payload) => {
+                console.error("[wxml] candidate failed file=%s reason=%s", fileName, error && (error.message || error));
+                if (payload) console.error("[wxml] candidate payload=%j", payload);
+                tryCandidate(index + 1);
+            });
+        }
+        tryCandidate(0);
     }
 
     /**
@@ -247,21 +261,20 @@ function packDone(dir, cb, order) {
         //deal js
         if (fs.existsSync(path.resolve(dir, "app-service.js"))) {
             wuJs.splitJs(path.resolve(dir, "app-service.js"), doBack, mainDir);
-            console.log('deal js ok');
+            console.log('deal app-service.js ok');
         } else if (fs.existsSync(path.resolve(dir, "appservice.js"))) {
             wuJs.splitJs(path.resolve(dir, "appservice.js"), doBack, mainDir);
-            console.log('deal js ok');
+            console.log('deal appservice.js ok');
         }
         if (fs.existsSync(path.resolve(dir, "workers.js"))) {
             wuJs.splitJs(path.resolve(dir, "workers.js"), doBack, mainDir);
             console.log('deal js2 ok');
         }
         //deal html
-        const filesToCheck = ["page-frame.html", "pageframe.html", "page-frame.js", "pageframe.js", "app-wxss.js"];;
+        // 0409 在处理到 taro 开发的小程序时，其 page-frame.js 是空的
+        const filesToCheck = ["page-frame.html", "pageframe.html", "page-frame.js", "pageframe.js", "app-wxss.js",  "app-service.js", "appservice.js",];;
         
-        if (!dealPageFrame(filesToCheck, dir, mainDir)) {
-            throw Error("page-frame-like file is not found in the package by auto.");
-        }
+        dealPageFrame(filesToCheck, dir, mainDir);
         
         if (mainDir) {
             wuSs.doWxss(dir, doBack, mainDir, nowDir);
