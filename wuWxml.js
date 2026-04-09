@@ -8,6 +8,30 @@ const {VM} = require('vm2');
 const escodegen = require('escodegen');
 const { write } = require('./utils.js');
 
+/**
+ * 将 gz$gwx... 函数名归一化为 zMulName
+ * 优先级从高到低：
+ *   1. gz$gwx_wx<AppId(16)>_XC_<n>_1    → 取 n（AppId固定16位）
+ *   2. gz$gwx_wx<AppId>+_<n>(_m)?       → 取 n（插件可选双段编号）
+ *   3. gz$gwx[_]<n>_<m>                 → 取 n_m（XC 双段号）
+ *   4. gz$gwx[_]<n>                     → 取 n（纯数字）
+ * @param {string} funName - callee.name
+ * @returns {string|null} - 归一化后的 key，或 null（未知格式）
+ */
+function resolveZMulName(funName) {
+    const matchers = [
+        /^gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1$/,
+        /^gz\$gwx_wx[a-z0-9]+_(\d+)(?:_\d+)?$/,
+        /^gz\$gwx\d?_XC_(\d+_\d+)$/,
+        /^gz\$gwx\d*_(\d+)$/
+    ];
+    for (let matcher of matchers) {
+        const matched = funName.match(matcher);
+        if (matched) return matched[1];
+    }
+    return null;
+}
+
 function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
     function anaRecursion(core, fakePool = {}) {
         return analyze(core, z, namePool, xPool, fakePool, zMulName);
@@ -239,24 +263,7 @@ function analyze(core, z, namePool, xPool, fakePool = {}, zMulName = "0") {
                                 break;
                             default: {
                                 let funName = dec.init.callee.name;
-                                zMulName = null;
-                                
-                                // 匹配 gz$gwx_wx..._XC_12_1 格式，提取 12
-                                if (!zMulName && /^gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1$/.test(funName)) {
-                                    zMulName = funName.match(/^gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1$/)[1];
-                                }
-                                // 匹配 gz$gwx_wx..._12 格式，提取 12
-                                if (!zMulName && /^gz\$gwx_wx[a-z0-9]+_(\d+)$/.test(funName)) {
-                                    zMulName = funName.match(/^gz\$gwx_wx[a-z0-9]+_(\d+)$/)[1];
-                                }
-                                // 匹配 gz$gwx_XC_1_1 格式，提取 1_1
-                                if (!zMulName && /^gz\$gwx\d{0,1}_XC_(\d+_\d+)$/.test(funName)) {
-                                    zMulName = funName.match(/^gz\$gwx\d{0,1}_XC_(\d+_\d+)$/)[1];
-                                }
-                                // 匹配 gz$gwx_1 格式，提取 1
-                                if (!zMulName && /^gz\$gwx\d*_(\d+)$/.test(funName)) {
-                                    zMulName = funName.match(/^gz\$gwx\d*_(\d+)$/)[1];
-                                }
+                                zMulName = resolveZMulName(funName);
 
                                 if(!zMulName) {
                                     throw Error("Unknown init callee " + funName, "\n出现新类型了, wuWXml.js处理");

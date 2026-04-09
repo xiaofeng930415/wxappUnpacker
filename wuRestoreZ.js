@@ -1,54 +1,94 @@
 const {VM} = require('vm2');
 
+const debugPrefixes = [
+	"(function(z){var a=11;function Z(ops,debugLine){",
+	"(function(z){var a=11;function Z(ops){"
+];
+const IIFE_END_MARKER = "})(__WXML_GLOBAL__.ops_cached.$gwx";
+
+function normalizeZArray(content, z) {
+	for (let debugPrefix of debugPrefixes) {
+		if (content.startsWith(debugPrefix)) {
+			for (let i = 0; i < z.length; i++) z[i] = z[i][1];
+			return;
+		}
+	}
+}
+
+function buildGroupContent(code, preStr, patternType) {
+	let content = code.slice(code.indexOf(preStr));
+	const startPtr = content.indexOf("(function(z){var a=11;");
+	const endMarkerPos = content.indexOf(IIFE_END_MARKER);
+	if (startPtr === -1 || endMarkerPos === -1) {
+		throw new Error(`[restoreZ] ${patternType} 片段截取失败: ${preStr}`);
+	}
+	return content.slice(startPtr, endMarkerPos) + "})(z);";
+}
+
+/**
+ * 在 VM 沙箱中批量提取 gz$gwx... 分组的 Z 数组
+ * @param {string} code - 完整源代码
+ * @param {string[]} groupPreStr - 正则匹配到的函数头列表
+ * @param {Object} opts
+ * @param {string} opts.patternType - 模式标识，用于日志和错误信息
+ * @param {RegExp} opts.keyRegex - 从函数头中提取 key 的正则，捕获组 1 为归一化 key
+ * @returns {Object} zArr - { [归一化key]: Z数组 }
+ */
+function extractZGroupMap(code, groupPreStr, {patternType, keyRegex}) {
+	let zArr = {};
+	for (let preStr of groupPreStr) {
+		const matched = preStr.match(keyRegex);
+		if (!matched) {
+			throw new Error(`[restoreZ] ${patternType} key 解析失败: ${preStr}`);
+		}
+		let z = [];
+		const content = buildGroupContent(code, preStr, patternType);
+		let vm = new VM({sandbox: {z: z, debugInfo: []}});
+		vm.run(content);
+		normalizeZArray(content, z);
+		zArr[matched[1]] = z;
+	}
+	if (groupPreStr.length > 0 && Object.keys(zArr).length === 0) {
+		throw new Error(`[restoreZ] ${patternType} 提取结果为空`);
+	}
+	console.log("[restoreZ] pattern=%s matched=%d keys=%s", patternType, groupPreStr.length, Object.keys(zArr).join(","));
+	return zArr;
+}
+
 /**
  * 提取旧版小程序 WXML 编译函数组（无 XC 标识）
  * 匹配模式：function gz$gwx(\d*_\d+)
+ * Key 归一化策略：统一取末尾数字段，支持 gz$gwx_1 和 gz$gwx1_2 两种旧式命名
  * @param {string} code - 完整源代码
  * @param {string[]} groupPreStr - 匹配到的函数头列表
  * @param {function} cb - 回调函数
  */
 function catchZGroup(code, groupPreStr, cb) {
-	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
-	let zArr = {};
-	for (let preStr of groupPreStr) {
-		let content = code.slice(code.indexOf(preStr)), z = [];
-		content = content.slice(content.indexOf("(function(z){var a=11;"));
-		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
-		let vm = new VM({sandbox: {z: z, debugInfo: []}});
-		vm.run(content);
-		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		// zArr[preStr.match(/function gz\$gwx(\d*_\d+)/)[1]] = z; 获取 => _数字
-		// zArr[preStr.match(/function gz\$gwx_(\d+)/)[1]] = z; // 获取 => 数字
-		zArr[preStr.match(/function gz\$gwx\d*_(\d+)/)[1]] = z; // 兼容前面两种情况
-	}
-	cb({"mul": zArr});
+	cb({
+		"mul": extractZGroupMap(code, groupPreStr, {
+			patternType: "legacy",
+			keyRegex: /function gz\$gwx\d*_(\d+)/
+		}),
+		patternType: "legacy"
+	});
 }
 
 /**
  * 提取新版小程序 WXML 编译函数组（含 XC 标识，简单格式）
- * 匹配模式：function gz$gwx\d{0,1}_XC_(\d*_\d+)
+ * 匹配模式：function gz$gwx\d?_XC_(\d*_\d+)
  * 典型场景：普通小程序页面
  * @param {string} code - 完整源代码
  * @param {string[]} groupPreStr - 匹配到的函数头列表
  * @param {function} cb - 回调函数
  */
 function catchZGroupWithXC(code, groupPreStr, cb) {
-	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
-	let zArr = {};
-	for (let preStr of groupPreStr) {
-		let content = code.slice(code.indexOf(preStr)), z = [];
-		content = content.slice(content.indexOf("(function(z){var a=11;"));
-		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
-		let vm = new VM({sandbox: {z: z, debugInfo: []}});
-		// console.log('======================');
-		// console.log('preStr:' + preStr);
-		// console.log('\ncontent:' + content);
-		vm.run(content);
-		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)/)[1]] = z;
-	}
-	console.log('======================');
-	cb({"mul": zArr});
+	cb({
+		"mul": extractZGroupMap(code, groupPreStr, {
+			patternType: "xc",
+			keyRegex: /function gz\$gwx\d?_XC_(\d*_\d+)/
+		}),
+		patternType: "xc"
+	});
 }
 
 /**
@@ -60,26 +100,13 @@ function catchZGroupWithXC(code, groupPreStr, cb) {
  * @param {function} cb - 回调函数
  */
 function catchZGroupWithAppIdXC(code, groupPreStr, cb) {
-	// gz$gwx_wxfa43a4a7041a84de_XC_0_1
-	// gz$gwx_wxfa43a4a7041a84de_XC_1_1
-	// gz$gwx_wxfa43a4a7041a84de_XC_8_1
-	// gz$gwx_wxfa43a4a7041a84de_XC_12_1
-	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
-	let zArr = {};
-	for (let preStr of groupPreStr) {
-		let content = code.slice(code.indexOf(preStr)), z = [];
-		content = content.slice(content.indexOf("(function(z){var a=11;"));
-		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
-		let vm = new VM({sandbox: {z: z, debugInfo: []}});
-		// console.log('======================');
-		// console.log('preStr:' + preStr);
-		// console.log('\ncontent:' + content);
-		vm.run(content);
-		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1/)[1]] = z;
-	}
-	console.log('======================');
-	cb({"mul": zArr});
+	cb({
+		"mul": extractZGroupMap(code, groupPreStr, {
+			patternType: "appid_xc",
+			keyRegex: /function gz\$gwx_wx[a-z0-9]{16}_XC_(\d+)_1/
+		}),
+		patternType: "appid_xc"
+	});
 }
 
 /**
@@ -91,19 +118,13 @@ function catchZGroupWithAppIdXC(code, groupPreStr, cb) {
  * @param {function} cb - 回调函数
  */
 function catchZGroupWxPlugin(code, groupPreStr, cb) {
-	const debugPre = "(function(z){var a=11;function Z(ops,debugLine){";
-	let zArr = {};
-	for (let preStr of groupPreStr) {
-		let content = code.slice(code.indexOf(preStr)), z = [];
-		content = content.slice(content.indexOf("(function(z){var a=11;"));
-		content = content.slice(0, content.indexOf("})(__WXML_GLOBAL__.ops_cached.$gwx")) + "})(z);";
-		let vm = new VM({sandbox: {z: z, debugInfo: []}});
-		vm.run(content);
-		if (content.startsWith(debugPre)) for (let i = 0; i < z.length; i++) z[i] = z[i][1];
-		zArr[preStr.match(/function gz\$gwx_wx[a-z0-9]+_(\d+)/)[1]] = z;
-	}
-	console.log('======================');
-	cb({"mul": zArr});
+	cb({
+		"mul": extractZGroupMap(code, groupPreStr, {
+			patternType: "plugin",
+			keyRegex: /function gz\$gwx_wx[a-z0-9]+_(\d+)/
+		}),
+		patternType: "plugin"
+	});
 }
 
 function normalizeTargetType(targetType) {
@@ -132,30 +153,50 @@ function catchZ(code, cb, targetType = "miniapp") {
 	const resolvedTargetType = normalizeTargetType(targetType);
 	const enablePluginMatch = resolvedTargetType === "plugin";
 	let zGroupMap = {};
-	function mergeZGroups({mul}) {
-		Object.assign(zGroupMap, mul);
+	let zGroupSources = {};
+	function merge2ZGroups({mul, patternType}) {
+		for (let key in mul) {
+			if (key in zGroupMap) {
+				console.warn("[restoreZ] key collision key=%s oldPattern=%s newPattern=%s", key, zGroupSources[key], patternType);
+			}
+			zGroupMap[key] = mul[key];
+			zGroupSources[key] = patternType;
+		}
 	}
 
 	// 1. 尝试匹配普通小程序的分组模式（无 XC 标识）
-	let groupMatch = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d*_\d+\)/g);
-	if (groupMatch !== null) catchZGroup(code, groupMatch, mergeZGroups);
+	let groupMatch = code.match(/function gz\$gwx(\d*_\d+)\(\)\{\n?\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\1\)/g);
+	if (groupMatch !== null) {
+		catchZGroup(code, groupMatch, merge2ZGroups);
+		if (!Object.keys(zGroupMap).length) {
+			throw new Error("catchZGroup: 未命中");
+		}
+	}
 
 	// 2. 尝试匹配新版小程序的分组模式（含 XC 标识，普通页面）
-	groupMatch = code.match(/function gz\$gwx\d{0,1}_XC_(\d*_\d+)\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d{0,1}_XC_\d*_\d+\)/g);
-	if (groupMatch !== null) catchZGroupWithXC(code, groupMatch, mergeZGroups);
+	groupMatch = code.match(/function gz\$gwx\d?_XC_(\d*_\d+)\(\)\{\n?\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx\d?_XC_\d*_\d+\)/g);
+	if (groupMatch !== null) catchZGroupWithXC(code, groupMatch, merge2ZGroups);
 
 	// 3. 尝试匹配复杂版小程序的分组模式（含 XC 标识与appid，分包/特殊构建）
-	groupMatch = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
-	if (groupMatch !== null) catchZGroupWithAppIdXC(code, groupMatch, mergeZGroups);
+	groupMatch = code.match(/function gz\$gwx_wx[a-z0-9]{16}_XC_\d+_1\(\)\{\n?\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]{16}_XC_\d+_1\)/g);
+	if (groupMatch !== null) {
+		catchZGroupWithAppIdXC(code, groupMatch, merge2ZGroups);
+		if (!Object.keys(zGroupMap).length) {
+			throw new Error("catchZGroupWithAppIdXC: 未命中");
+		}
+	}
 
 	// 4. 尝试匹配小程序插件模式（仅当 targetType="plugin" 时启用）
 	let pluginMatchCount = 0;
 	let pluginGroupMatch = enablePluginMatch
-		? code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g)
+		? code.match(/function gz\$gwx_wx[a-z0-9]+_\d+(_\d+)?\(\)\{\n?\s*if\( __WXML_GLOBAL__\.ops_cached\.\$gwx_wx[a-z0-9]+_\d+(_\d+)?\)/g)
 		: null;
 	if (pluginGroupMatch !== null) {
 		pluginMatchCount = pluginGroupMatch.length;
-		catchZGroupWxPlugin(code, pluginGroupMatch, mergeZGroups);
+		catchZGroupWxPlugin(code, pluginGroupMatch, merge2ZGroups);
+		if (!Object.keys(zGroupMap).length) {
+			throw new Error("catchZGroupWxPlugin: 未命中");
+		}
 	}
 	console.log("[restoreZ] targetType=%s pluginMatch=%s pluginHits=%d", resolvedTargetType, enablePluginMatch ? "on" : "off", pluginMatchCount);
 
@@ -202,8 +243,10 @@ function catchZ(code, cb, targetType = "miniapp") {
 		}
 	});
 	// 回退路径：不命中任何 gz$gwx 分组模式时，从尾部 ops_set.$gwx 截取可执行片段运行得到 z
-	let {tailPtr, tailStep} = findOpsSetTailInfo(code);
+	let { tailPtr, tailStep } = findOpsSetTailInfo(code);
 	if (tailPtr == -1) {
+		console.error("code.length：", code.length);
+		console.error("code[0-100]", code.slice(0, 100));
 		throw new Error("lastPtr == -1");
 	} 
 	code = code.slice(code.lastIndexOf('(function(z){var a=11;function Z(ops){z.push(ops)}'), tailPtr + tailStep);
